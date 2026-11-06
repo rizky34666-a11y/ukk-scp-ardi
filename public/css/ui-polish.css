@@ -1,0 +1,117 @@
+/* ==========================================================================
+   UI POLISH — penyempurnaan tampilan & responsif (dimuat SETELAH style.css)
+   Hanya menambah / menyempurnakan aturan; tidak mengubah struktur halaman.
+   ========================================================================== */
+
+/* ── Dasar ── */
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+img { max-width: 100%; }
+.app-content { overflow-wrap: break-word; max-width: 1680px; width: 100%; margin-inline: auto; }
+
+/* ── Tabel: bisa digeser ke samping (sebelumnya terpotong), dengan bayangan penanda ── */
+.app-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background:
+        linear-gradient(to right, #fff 30%, rgba(255, 255, 255, 0)) left center,
+        linear-gradient(to left, #fff 30%, rgba(255, 255, 255, 0)) right center,
+        radial-gradient(farthest-side at 0 50%, rgba(15, 42, 92, .18), rgba(15, 42, 92, 0)) left center,
+        radial-gradient(farthest-side at 100% 50%, rgba(15, 42, 92, .18), rgba(15, 42, 92, 0)) right center;
+    background-repeat: no-repeat;
+    background-color: #fff;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+.app-table-wrapper::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar,
+.nav-tabs::-webkit-scrollbar { height: 6px; }
+.app-table-wrapper::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb,
+.nav-tabs::-webkit-scrollbar-thumb { background: #b6c9e0; border-radius: 6px; }
+
+/* ── Form & tombol ── */
+.form-label { font-weight: 600; font-size: .84rem; margin-bottom: .35rem; color: var(--color-dark, #0f2a5c); }
+.form-control, .form-select { min-height: 40px; }
+.form-control-sm, .form-select-sm { min-height: 32px; }
+.btn { font-weight: 600; }
+.btn:not(.btn-sm) { min-height: 38px; }
+.app-card-header { flex-wrap: wrap; gap: .5rem; }
+.badge-soft { max-width: 100%; }
+
+/* ── Tab (mis. Manajemen Akun): geser horizontal, tidak meluber ── */
+@media (max-width: 991.98px) {
+    .nav-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+    .nav-tabs .nav-link, .nav-tabs .nav-item { white-space: nowrap; }
+}
+
+/* ── Sidebar: tinggi mengikuti layar HP (bilah alamat) & kunci scroll saat menu terbuka ── */
+.app-sidebar { height: 100vh; height: 100dvh; }
+@media (max-width: 991.98px) {
+    body:has(.app-sidebar.sidebar-open) { overflow: hidden; }
+    .sidebar-link { min-height: 44px; }
+}
+
+/* ── Tablet ke bawah ── */
+@media (max-width: 767.98px) {
+    .page-header-wrapper .d-flex { flex-wrap: wrap; }
+    .page-header-wrapper .badge-soft { white-space: normal; }
+    .page-subtitle { font-size: .82rem; }
+
+    .app-table { min-width: 620px; }
+    .app-table thead th { padding: .7rem .8rem; }
+    .app-table tbody td { padding: .65rem .8rem; }
+    .app-table td .d-flex { flex-wrap: wrap; }
+}
+
+/* ── HP ── */
+@media (max-width: 575.98px) {
+    /* Topbar: judul dipotong rapi, tombol tidak desak-desakan */
+    .app-topbar { padding: 0 .75rem; gap: .5rem; }
+    .topbar-breadcrumb { display: flex; min-width: 0; }
+    .topbar-breadcrumb .bc-prefix,
+    .topbar-breadcrumb .bc-sep { display: none; }
+    .topbar-breadcrumb .bc-current {
+        display: block; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; max-width: 52vw; font-size: .9rem;
+    }
+    .topbar-right { gap: .4rem; flex-shrink: 0; }
+
+    /* Kartu & statistik */
+    .app-card-header { padding: .85rem 1rem; }
+    .app-card-body { padding: 1rem; }
+    .stat-card { min-width: 0; }
+    .stat-label { overflow-wrap: anywhere; }
+
+    /* Input 16px agar iOS tidak zoom otomatis; target sentuh lebih besar */
+    .form-control, .form-select, .form-control-sm, .form-select-sm { font-size: 16px; }
+    .btn:not(.btn-sm) { min-height: 44px; }
+
+    /* Modal pas di layar */
+    .modal-dialog { margin: .75rem; }
+    .modal-content { max-height: calc(100vh - 1.5rem); max-height: calc(100dvh - 1.5rem); }
+    .modal-body { overflow-y: auto; }
+
+    /* Halaman login / register / lupa password */
+    .auth-wrapper { padding: 1rem; }
+    .auth-card { padding: 1.6rem 1.15rem; }
+    .auth-title { font-size: 1.3rem; }
+    .auth-card .step-item { font-size: .66rem; }
+    .auth-card .step-item span { max-width: 62px; text-align: center; line-height: 1.2; }
+    .auth-card .step-line { margin: 0 .3rem 1.6rem; }
+}
+
+/* ── Perangkat sentuh: tanpa efek hover yang "menempel" ── */
+@media (hover: none) {
+    .app-card:hover, .stat-card:hover, .feature-card:hover { transform: none; }
+    .app-table tbody tr:hover td { background-color: transparent; }
+}
+
+/* ── Hormati pengaturan "kurangi animasi" ── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
