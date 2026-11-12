@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Audit;
 
 class WakaController extends Controller
 {
@@ -18,10 +19,8 @@ class WakaController extends Controller
 
         if (!$config) {
             DB::table('system_configurations')->insert([
-                'active_cycle' => '1',
+                'active_cycle' => 'Putaran 1',
                 'is_schedule_locked' => false,
-                'start_date' => now(),
-                'end_date' => now()->addWeeks(2),
             ]);
             $config = DB::table('system_configurations')->first();
         }
@@ -37,14 +36,20 @@ class WakaController extends Controller
         }
 
         $request->validate([
-            'active_cycle' => 'required|in:1,2',
+            'active_cycle' => 'required|in:1,2,Putaran 1,Putaran 2',
             'is_schedule_locked' => 'required|boolean',
         ]);
 
+        // Kolom active_cycle bertipe enum('Putaran 1','Putaran 2'); terima juga nilai "1"/"2" dari formulir
+        $siklus = in_array($request->active_cycle, ['1', '2'], true) ? 'Putaran ' . $request->active_cycle : $request->active_cycle;
+
+        $lama = DB::table('system_configurations')->where('id', 1)->first(['active_cycle', 'is_schedule_locked']);
         DB::table('system_configurations')->where('id', 1)->update([
-            'active_cycle' => $request->active_cycle,
+            'active_cycle' => $siklus,
             'is_schedule_locked' => $request->is_schedule_locked,
         ]);
+        Audit::catat('ubah', 'konfigurasi', 1, 'Mengubah putaran aktif / kunci jadwal', $lama,
+            ['active_cycle' => $siklus, 'is_schedule_locked' => $request->is_schedule_locked]);
 
         return back()->with('success', 'Konfigurasi siklus dan status jadwal berhasil diperbarui!');
     }

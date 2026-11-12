@@ -230,6 +230,20 @@
             @endif
         </div>
 
+        @if($kelasDibatasi ?? false)
+            @if($kelasWaliTakDikenal ?? false)
+                <div class="alert alert-warning py-2 small mb-3">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    Kelas perwalian akun Anda belum dikenali sehingga rekap tidak ditampilkan. Hubungi Waka Kurikulum untuk memeriksa akun Wali Kelas Anda.
+                </div>
+            @else
+                <div class="alert alert-info py-2 small mb-3">
+                    <i class="fa-solid fa-lock me-1"></i>
+                    Sebagai Wali Kelas, Anda hanya melihat rekap kelas perwalian: <strong>{{ $kelasWaliLabel }}</strong>.
+                </div>
+            @endif
+        @endif
+
         {{-- Filter Utama Form --}}
         <form method="GET" action="{{ route('rekap.absensi.index') }}" class="row g-2 align-items-end">
             <!-- Filter Kelas -->
@@ -238,7 +252,9 @@
                     <i class="fa-solid fa-school me-1"></i> Pilih Kelas
                 </label>
                 <select name="kelas" id="filter_kelas" class="form-select form-select-sm">
+                    @unless($kelasDibatasi ?? false)
                     <option value="all" {{ $filterKelas === 'all' ? 'selected' : '' }}>-- Semua Kelas --</option>
+                    @endunless
                     @foreach($daftarKelas as $k)
                         <option value="{{ $k->id_kelas }}" {{ $filterKelas === $k->id_kelas ? 'selected' : '' }}>
                             {{ $k->tingkat ?? '' }} {{ $k->jurusan?->nama_jurusan ?? $k->id_kelas }}

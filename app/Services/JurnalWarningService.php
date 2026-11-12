@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Guru;
+use App\Models\IzinGuru;
 use App\Models\JadwalPelajaran;
 use App\Models\Journal;
 use App\Models\SystemConfiguration;
@@ -23,7 +24,7 @@ class JurnalWarningService
     {
         // Pastikan role Guru (id_role == 2) atau Wali Kelas (id_role == 3) atau jika guruId diberikan
         if ($guruId === null) {
-            if (!in_array(session('id_role'), [2, 3])) {
+            if (!in_array(session('id_role'), [2, 3]) && !\App\Services\JadwalHariIni::bkMengajar()) {
                 return collect([]);
             }
 
@@ -34,7 +35,7 @@ class JurnalWarningService
                 return collect([]);
             }
 
-            $guru = Guru::where('nip', $username)->first();
+            $guru = \App\Services\JadwalHariIni::guruByUsername($username);
             if (!$guru) {
                 $guru = Guru::where('nama_guru', session('nama_lengkap'))->first();
             }
@@ -88,7 +89,12 @@ class JurnalWarningService
             }
         }
 
-        $jadwals = $query->orderBy('jam_mulai', 'asc')->get();
+        $jadwals = TukarJadwalService::terapkan($query->orderBy('jam_mulai', 'asc')->get(), $tanggalHariIni)->sortBy('jam_mulai')->values();
+
+        // Guru yang izinnya sudah disetujui Waka tidak dianggap terlambat mengisi jurnal
+        if (IzinGuru::disetujuiPadaTanggal($tanggalHariIni, [$guruId])->isNotEmpty()) {
+            return collect([]);
+        }
 
         $overdueList = collect([]);
 

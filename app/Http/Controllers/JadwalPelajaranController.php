@@ -10,6 +10,7 @@ use App\Models\Journal;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Models\Guru;
 use App\Services\ExcelImportService;
+use App\Support\Audit;
 use Exception;
 
 class JadwalPelajaranController extends Controller
@@ -28,7 +29,7 @@ class JadwalPelajaranController extends Controller
         $guruLogin = null;
         
         // Cari guru berdasarkan NIP
-        $guruLogin = Guru::where('nip', $username)->first();
+        $guruLogin = \App\Services\JadwalHariIni::guruByUsername($username);
 
         // Jika Guru atau Wali Kelas (role 2 / 3) belum terdaftar di tabel guru, sinkronkan otomatis
         if (!$guruLogin && in_array($idRole, [2, 3])) {
@@ -134,10 +135,12 @@ class JadwalPelajaranController extends Controller
         }
 
         $daftarSesi = JadwalPelajaran::getDaftarSesi();
+        $sesiPerHari = JadwalPelajaran::getSesiPerHari();
+        $kegiatanHari = JadwalPelajaran::getKegiatanHari();
 
         return view('jadwal.index', compact(
             'jadwals', 'jadwalGroups', 'paginator', 'filter', 'totalJadwal', 'cycleAktif',
-            'jurnalList', 'config', 'tahunAjaran', 'kelas', 'mapels', 'gurus', 'ruangans', 'guruLogin', 'daftarSesi'
+            'jurnalList', 'config', 'tahunAjaran', 'kelas', 'mapels', 'gurus', 'ruangans', 'guruLogin', 'daftarSesi', 'sesiPerHari', 'kegiatanHari'
         ));
     }
 
@@ -154,7 +157,7 @@ class JadwalPelajaranController extends Controller
 
         $username = session('username');
         $idRole = session('id_role');
-        $guruLogin = Guru::where('nip', $username)->first();
+        $guruLogin = \App\Services\JadwalHariIni::guruByUsername($username);
 
         // Dukungan dual-role Wali Kelas (role 3) dan Guru (role 2)
         if (!$guruLogin && in_array($idRole, [2, 3])) {
@@ -175,7 +178,7 @@ class JadwalPelajaranController extends Controller
         }
 
         // Konversi pilihan Sesi Jam Pelajaran menjadi jam_mulai dan jam_selesai (HH:mm:ss)
-        $sesiList = JadwalPelajaran::getDaftarSesi();
+        $sesiList = JadwalPelajaran::getDaftarSesi($request->hari);
 
         if ($request->filled('sesi_mulai') && isset($sesiList[$request->sesi_mulai])) {
             $request->merge([
@@ -222,7 +225,7 @@ class JadwalPelajaranController extends Controller
             return redirect()->back()->withErrors(['error' => 'GAGAL! Jadwal bentrok dengan waktu, ruangan, atau kelas lain pada putaran ini.'])->withInput();
         }
 
-        JadwalPelajaran::create([
+        $jadwalBaru = JadwalPelajaran::create([
             'id_tahun_ajaran'    => $request->id_tahun_ajaran,
             'id_kelas'           => $request->id_kelas,
             'id_mapel'           => $request->id_mapel,
@@ -233,6 +236,11 @@ class JadwalPelajaranController extends Controller
             'jam_selesai'        => $request->jam_selesai,
             'cycle_type'         => $activeCycle,
         ]);
+
+        Audit::catat('tambah', 'jadwal', $jadwalBaru->id_jadwal,
+            'Menambah jadwal: kelas ' . $request->id_kelas . ', mapel ' . $request->id_mapel . ', ' . $request->hari . ' '
+            . $request->jam_mulai . '-' . $request->jam_selesai . ' (' . $activeCycle . ')',
+            null, $jadwalBaru->toArray());
 
         return redirect()->back()->with('success', 'Jadwal pelajaran berhasil ditambahkan!');
     }
@@ -245,10 +253,13 @@ class JadwalPelajaranController extends Controller
 
         $config = SystemConfiguration::first();
         if ($config) {
+            $lama = ['active_cycle' => $config->active_cycle, 'is_schedule_locked' => $config->is_schedule_locked];
             $config->update([
                 'active_cycle' => $request->active_cycle,
                 'is_schedule_locked' => $request->is_schedule_locked,
             ]);
+            Audit::catat('ubah', 'konfigurasi', $config->id ?? 1, 'Mengubah putaran aktif / kunci jadwal', $lama,
+                ['active_cycle' => $request->active_cycle, 'is_schedule_locked' => $request->is_schedule_locked]);
         }
         
         return redirect()->back()->with('success', 'Konfigurasi berhasil diperbarui!');
@@ -258,7 +269,7 @@ class JadwalPelajaranController extends Controller
     // FITUR MANAJEMEN AKUN & ROLE (KHUSUS WAKA)
     // ==========================================
 
-    public function indexAkun()
+    public function indexAkun(Request $request)
     {
         if (!session()->has('id_user') || session('id_role') != 4) {
             return redirect()->route('login')->withErrors(['error' => 'Akses ditolak! Hanya Waka Kurikulum yang dapat mengelola akun.']);
@@ -266,19 +277,45 @@ class JadwalPelajaranController extends Controller
 
         $roles = DB::table('role')->get();
 
-        $users = DB::table('users')
-            ->leftJoin('role', 'users.id_role', '=', 'role.id_role')
+        $q           = trim((string) $request->query('q', ''));
+        $roleFilter  = (string) $request->query('role', '');
+        $kelasFilter = (string) $request->query('kelas', '');
+        if (!in_array($roleFilter, ['2', '3', '4', '5', '7'], true)) {
+            $roleFilter = '';
+        }
+
+        $query = DB::table('users')
             ->leftJoin('siswa', 'users.username', '=', 'siswa.nisn')
             ->leftJoin('kelas as k_siswa', 'siswa.id_kelas', '=', 'k_siswa.id_kelas')
-            ->leftJoin('jurusan as j_siswa', 'k_siswa.id_jurusan', '=', 'j_siswa.id_jurusan')
             ->select(
                 'users.*',
-                'role.nama_role',
                 'siswa.id_kelas as siswa_id_kelas',
                 DB::raw("TRIM(CONCAT(COALESCE(k_siswa.tingkat,''), ' ', COALESCE(k_siswa.id_jurusan,''))) as siswa_nama_kelas")
-            )
-            ->orderBy('users.id_user', 'desc')
-            ->get();
+            );
+
+        if ($roleFilter !== '') {
+            $query->where('users.id_role', (int) $roleFilter);
+        }
+        if ($kelasFilter !== '') {
+            $query->where('users.id_role', 5)->where('siswa.id_kelas', $kelasFilter);
+        }
+        if ($q !== '') {
+            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $query->where(function ($w) use ($like) {
+                $w->where('users.username', 'like', $like)
+                  ->orWhere('users.nama_lengkap', 'like', $like)
+                  ->orWhere('users.email', 'like', $like);
+            });
+        }
+
+        $users = $query->orderBy('users.id_user', 'desc')->paginate(25)->withQueryString();
+
+        $countPerRole = DB::table('users')
+            ->select('id_role', DB::raw('COUNT(*) as total'))
+            ->groupBy('id_role')
+            ->pluck('total', 'id_role')
+            ->all();
+        $totalSemua = array_sum($countPerRole);
 
         $daftarKelas = DB::table('kelas')
             ->leftJoin('jurusan', 'kelas.id_jurusan', '=', 'jurusan.id_jurusan')
@@ -287,7 +324,9 @@ class JadwalPelajaranController extends Controller
             ->orderBy('jurusan.nama_jurusan')
             ->get();
 
-        return view('jadwal.manajemen_akun', compact('users', 'roles', 'daftarKelas'));
+        return view('jadwal.manajemen_akun', compact(
+            'users', 'roles', 'daftarKelas', 'q', 'roleFilter', 'kelasFilter', 'countPerRole', 'totalSemua'
+        ));
     }
 
     public function storeAkun(Request $request)
@@ -322,6 +361,9 @@ class JadwalPelajaranController extends Controller
             'email'         => $request->filled('email') ? strtolower(trim($request->email)) : null,
             'is_aktif'      => 1,
         ]);
+
+        Audit::catat('tambah', 'akun', $request->username, 'Membuat akun baru: ' . $request->nama_lengkap . ' (role ' . $request->id_role . ')',
+            null, ['username' => $request->username, 'nama_lengkap' => $request->nama_lengkap, 'id_role' => $request->id_role, 'email' => $request->email]);
 
         // 2. JIKA role yang dipilih adalah GURU (id_role == 2) atau WALI KELAS (id_role == 3), 
         // masukkan otomatis datanya ke dalam tabel 'guru' jika belum ada
@@ -395,6 +437,15 @@ class JadwalPelajaranController extends Controller
 
         DB::table('users')->where('id_user', $id)->update($updateData);
 
+        $baruAudit = $updateData;
+        unset($baruAudit['password_hash']);
+        if ($request->filled('password')) {
+            $baruAudit['password_diganti'] = true;
+        }
+        Audit::catat('ubah', 'akun', $id, 'Mengubah data akun: ' . $request->nama_lengkap . ' (' . $oldUsername . ')',
+            ['username' => $user->username, 'nama_lengkap' => $user->nama_lengkap, 'id_role' => $user->id_role, 'email' => $user->email ?? null, 'is_aktif' => $user->is_aktif ?? null],
+            $baruAudit);
+
         // Sinkronisasi data ke tabel guru jika role = 2 (Guru) atau role = 3 (Wali Kelas)
         if ($request->id_role == 2 || $request->id_role == 3) {
             $guru = DB::table('guru')->where('nip', $oldUsername)->first();
@@ -454,6 +505,9 @@ class JadwalPelajaranController extends Controller
 
             DB::commit();
 
+            Audit::catat('hapus', 'akun', $id, 'Menghapus akun: ' . $user->nama_lengkap . ' (' . $user->username . ')',
+                ['username' => $user->username, 'nama_lengkap' => $user->nama_lengkap, 'id_role' => $user->id_role], null);
+
             return redirect()->route('akun.index')->with('success', 'Akun "' . $user->nama_lengkap . '" (' . $user->username . ') berhasil dihapus!');
         } catch (Exception $e) {
             DB::rollBack();
@@ -487,6 +541,8 @@ class JadwalPelajaranController extends Controller
             return redirect()->back()->withErrors(['error' => 'Tidak ada akun valid yang dapat dihapus. Anda tidak dapat menghapus akun Anda sendiri yang sedang login.']);
         }
 
+        $akunDihapus = DB::table('users')->whereIn('id_user', $idsToDelete)->get(['id_user', 'username', 'nama_lengkap', 'id_role'])->toArray();
+
         try {
             DB::beginTransaction();
 
@@ -502,6 +558,8 @@ class JadwalPelajaranController extends Controller
             DB::table('users')->whereIn('id_user', $idsToDelete)->delete();
 
             DB::commit();
+
+            Audit::catat('hapus_massal', 'akun', null, "Menghapus {$count} akun sekaligus", $akunDihapus, null);
 
             return redirect()->route('akun.index')->with('success', "Berhasil menghapus {$count} akun pengguna sekaligus secara permanen!");
 
@@ -931,6 +989,8 @@ class JadwalPelajaranController extends Controller
             if (count($skippedUsernames) > 0) {
                 $msgParts[] = count($skippedUsernames) . " akun dilewati karena username/NIP sudah terdaftar.";
             }
+
+            Audit::catat('impor', 'akun', null, 'Impor akun dari Excel: ' . implode(' ', $msgParts));
 
             return redirect()->route('akun.index')->with('success', implode(' ', $msgParts));
 

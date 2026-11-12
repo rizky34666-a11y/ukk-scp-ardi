@@ -44,7 +44,7 @@
 @section('content')
 <div class="row g-4">
     <!-- Form Buat Akun Baru & Import Massal -->
-    <div class="col-lg-4">
+    <div class="col-12 col-xl-3">
         <!-- Form Buat Akun Manual -->
         <div class="app-card">
             <div class="app-card-header">
@@ -133,23 +133,28 @@
     </div>
 
     <!-- Tabel Daftar Pengguna Terbagi Berdasarkan Role -->
-    <div class="col-lg-8">
+    <div class="col-12 col-xl-9">
+        @php
+            $filterAktif = ($q ?? '') !== '' || ($roleFilter ?? '') !== '' || ($kelasFilter ?? '') !== '';
+            $tabRole = [
+                ''  => ['Semua', 'fa-users', 'text-primary', null],
+                '2' => ['Guru Pengampu', 'fa-chalkboard-user', 'text-primary', 2],
+                '3' => ['Wali Kelas', 'fa-user-tie', 'text-success', 3],
+                '7' => ['Guru BK', 'fa-user-doctor', 'text-info', 7],
+                '4' => ['Waka Kurikulum', 'fa-user-shield', 'text-danger', 4],
+                '5' => ['Siswa', 'fa-graduation-cap', 'text-secondary', 5],
+            ];
+        @endphp
         <div class="app-card">
-            <!-- Header Card & Search -->
-            <div class="app-card-header d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-                <div>
-                    <h5 class="app-card-title mb-0">
-                        <i class="fa-solid fa-users text-primary"></i>
-                        Daftar Akun Pengguna Terdaftar
-                    </h5>
-                    <small class="text-muted">Total: {{ count($users) }} akun terdaftar dalam sistem</small>
-                </div>
-                <div style="min-width: 220px;">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                        <input type="text" id="userTableSearch" class="form-control" placeholder="Cari nama atau username...">
-                    </div>
-                </div>
+            <div class="app-card-header">
+                <h5 class="app-card-title mb-0">
+                    <i class="fa-solid fa-users text-primary"></i>
+                    Daftar Akun Pengguna Terdaftar
+                </h5>
+                <small class="text-muted">
+                    Total: {{ number_format($totalSemua, 0, ',', '.') }} akun terdaftar
+                    @if($filterAktif) &middot; {{ number_format($users->total(), 0, ',', '.') }} cocok dengan filter @endif
+                </small>
             </div>
 
             <!-- Bar Aksi Hapus Massal (Muncul Otomatis Saat Ada Akun Dicentang) -->
@@ -159,117 +164,75 @@
                     <span class="fw-semibold small">Akun pengguna telah dipilih</span>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-light btn-sm fw-semibold" id="btnCancelBulkSelect">
-                        Batal
-                    </button>
+                    <button type="button" class="btn btn-outline-light btn-sm fw-semibold" id="btnCancelBulkSelect">Batal</button>
                     <button type="button" class="btn btn-warning btn-sm fw-bold shadow-xs text-dark" data-bs-toggle="modal" data-bs-target="#modalBulkDelete">
                         <i class="fa-solid fa-trash-can me-1"></i> Hapus Akun Terpilih
                     </button>
                 </div>
             </div>
 
-            <!-- Tab Navigasi Role -->
-            @php
-                $countWaka = $users->where('id_role', 4)->count();
-                $countGuru = $users->where('id_role', 2)->count();
-                $countWali = $users->where('id_role', 3)->count();
-                $countBK = $users->where('id_role', 7)->count();
-                $countSiswa = $users->where('id_role', 5)->count();
-            @endphp
+            <!-- Tab Role (link, bukan JavaScript, agar halaman ringan) -->
             <div class="border-bottom px-3 pt-2">
-                <ul class="nav nav-tabs border-0" id="roleTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active small py-2 fw-semibold" id="tab-guru" data-bs-toggle="tab" data-bs-target="#pane-guru" type="button" role="tab">
-                            <i class="fa-solid fa-chalkboard-user me-1 text-primary"></i> Guru Pengampu
-                            <span class="badge rounded-pill bg-primary-subtle text-primary ms-1">{{ $countGuru }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link small py-2 fw-semibold" id="tab-wali" data-bs-toggle="tab" data-bs-target="#pane-wali" type="button" role="tab">
-                            <i class="fa-solid fa-user-tie me-1 text-success"></i> Wali Kelas
-                            <span class="badge rounded-pill bg-success-subtle text-success ms-1">{{ $countWali }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link small py-2 fw-semibold" id="tab-bk" data-bs-toggle="tab" data-bs-target="#pane-bk" type="button" role="tab">
-                            <i class="fa-solid fa-user-doctor me-1 text-info"></i> Guru BK
-                            <span class="badge rounded-pill bg-info-subtle text-info ms-1">{{ $countBK }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link small py-2 fw-semibold" id="tab-waka" data-bs-toggle="tab" data-bs-target="#pane-waka" type="button" role="tab">
-                            <i class="fa-solid fa-user-shield me-1 text-danger"></i> Waka Kurikulum
-                            <span class="badge rounded-pill bg-danger-subtle text-danger ms-1">{{ $countWaka }}</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link small py-2 fw-semibold" id="tab-siswa" data-bs-toggle="tab" data-bs-target="#pane-siswa" type="button" role="tab">
-                            <i class="fa-solid fa-graduation-cap me-1 text-secondary"></i> Siswa
-                            <span class="badge rounded-pill bg-secondary-subtle text-secondary ms-1">{{ $countSiswa }}</span>
-                        </button>
-                    </li>
+                <ul class="nav nav-tabs border-0 flex-nowrap overflow-auto" style="white-space:nowrap;">
+                    @foreach($tabRole as $kode => [$label, $ikon, $warna, $idRole])
+                        @php $jumlah = $idRole === null ? $totalSemua : ($countPerRole[$idRole] ?? 0); @endphp
+                        <li class="nav-item">
+                            <a class="nav-link small py-2 fw-semibold {{ (string) $roleFilter === (string) $kode ? 'active' : '' }}"
+                               href="{{ route('akun.index', array_filter(['role' => $kode, 'q' => $q, 'kelas' => $kode === '5' || $kode === '' ? $kelasFilter : null], fn($v) => $v !== null && $v !== '')) }}">
+                                <i class="fa-solid {{ $ikon }} me-1 {{ $warna }}"></i> {{ $label }}
+                                <span class="badge rounded-pill bg-light text-dark border ms-1">{{ number_format($jumlah, 0, ',', '.') }}</span>
+                            </a>
+                        </li>
+                    @endforeach
                 </ul>
             </div>
 
-            <!-- Tab Content Tiap Role -->
-            <div class="tab-content" id="roleTabContent">
-                <!-- Tab 1: Guru Pengampu -->
-                <div class="tab-pane fade show active" id="pane-guru" role="tabpanel">
-                    @include('jadwal._tabel_pengguna', [
-                        'userList' => $users->where('id_role', 2),
-                        'emptyMessage' => 'Belum ada akun Guru Pengampu yang terdaftar.'
-                    ])
-                </div>
-
-                <!-- Tab 2: Wali Kelas -->
-                <div class="tab-pane fade" id="pane-wali" role="tabpanel">
-                    @include('jadwal._tabel_pengguna', [
-                        'userList' => $users->where('id_role', 3),
-                        'emptyMessage' => 'Belum ada akun Wali Kelas yang terdaftar.'
-                    ])
-                </div>
-
-                <!-- Tab 3: Guru BK -->
-                <div class="tab-pane fade" id="pane-bk" role="tabpanel">
-                    @include('jadwal._tabel_pengguna', [
-                        'userList' => $users->where('id_role', 7),
-                        'emptyMessage' => 'Belum ada akun Guru BK yang terdaftar.'
-                    ])
-                </div>
-
-                <!-- Tab 4: Waka Kurikulum -->
-                <div class="tab-pane fade" id="pane-waka" role="tabpanel">
-                    @include('jadwal._tabel_pengguna', [
-                        'userList' => $users->where('id_role', 4),
-                        'emptyMessage' => 'Belum ada akun Waka Kurikulum yang terdaftar.'
-                    ])
-                </div>
-
-                <!-- Tab 5: Siswa -->
-                <div class="tab-pane fade" id="pane-siswa" role="tabpanel">
-                    <!-- Filter Kelas Siswa -->
-                    <div class="px-3 pt-3 pb-2 border-bottom bg-light">
-                        <div class="d-flex flex-wrap align-items-center gap-2">
-                            <i class="fa-solid fa-filter text-secondary small"></i>
-                            <span class="small fw-semibold text-muted">Filter Kelas:</span>
-                            <select id="filterKelasSiswa" class="form-select form-select-sm" style="max-width: 250px;">
-                                <option value="">— Semua Kelas —</option>
-                                @foreach($daftarKelas as $k)
-                                    <option value="{{ $k->id_kelas }}"
-                                            data-name="{{ strtolower(trim(($k->tingkat ?? '') . ' ' . ($k->id_jurusan ?? ''))) }}">
-                                        {{ trim(($k->tingkat ?? '') . ' ' . ($k->id_jurusan ?? $k->nama_jurusan ?? $k->id_kelas)) }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <span id="siswaFilterCount" class="badge bg-primary-subtle text-primary border border-primary-subtle small d-none"></span>
+            <!-- Pencarian & Filter Kelas -->
+            <form method="GET" action="{{ route('akun.index') }}" class="px-3 py-3 border-bottom bg-light">
+                <input type="hidden" name="role" value="{{ $roleFilter }}">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-6">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                            <input type="search" name="q" value="{{ $q }}" class="form-control" placeholder="Cari username, nama, atau email..." autocomplete="off">
                         </div>
                     </div>
-                    @include('jadwal._tabel_pengguna', [
-                        'userList'     => $users->where('id_role', 5),
-                        'emptyMessage' => 'Belum ada akun Siswa yang terdaftar.',
-                        'daftarKelas'  => $daftarKelas,
-                    ])
+                    <div class="col-8 col-md-4">
+                        <select name="kelas" class="form-select form-select-sm" aria-label="Filter kelas siswa">
+                            <option value="">Semua kelas (siswa)</option>
+                            @foreach($daftarKelas as $k)
+                                <option value="{{ $k->id_kelas }}" {{ (string) $kelasFilter === (string) $k->id_kelas ? 'selected' : '' }}>
+                                    {{ trim(($k->tingkat ?? '') . ' ' . ($k->id_jurusan ?? $k->nama_jurusan ?? $k->id_kelas)) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-2 d-flex gap-1">
+                        <button type="submit" class="btn btn-primary btn-sm flex-fill">Cari</button>
+                        @if($filterAktif)
+                            <a href="{{ route('akun.index') }}" class="btn btn-outline-secondary btn-sm" title="Reset filter"><i class="fa-solid fa-xmark"></i></a>
+                        @endif
+                    </div>
                 </div>
+            </form>
+
+            @include('jadwal._tabel_pengguna', [
+                'userList' => $users,
+                'emptyMessage' => $filterAktif ? 'Tidak ada akun yang cocok dengan pencarian/filter.' : 'Belum ada akun yang terdaftar.',
+            ])
+
+            <!-- Navigasi Halaman -->
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 p-3 border-top">
+                <span class="small text-muted">
+                    @if($users->total() > 0)
+                        Menampilkan {{ $users->firstItem() }}&ndash;{{ $users->lastItem() }} dari {{ number_format($users->total(), 0, ',', '.') }} akun
+                    @else
+                        Tidak ada data
+                    @endif
+                </span>
+                @if($users->hasPages())
+                    <div class="overflow-auto">{{ $users->onEachSide(1)->links('pagination::bootstrap-4') }}</div>
+                @endif
             </div>
         </div>
     </div>
@@ -437,189 +400,119 @@
 </div>
 
 <!-- ======================================================== -->
-<!-- MODAL EDIT PENGGUNA                                      -->
+<!-- MODAL EDIT & HAPUS PENGGUNA (satu modal dipakai bersama) -->
 <!-- ======================================================== -->
-@foreach($users as $u)
-    <div class="modal fade" id="modalEditUser{{ $u->id_user }}" tabindex="-1" aria-labelledby="modalEditUserLabel{{ $u->id_user }}" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold" id="modalEditUserLabel{{ $u->id_user }}">
-                        <i class="fa-solid fa-user-pen text-primary me-1"></i> Edit Akun Pengguna
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form action="{{ route('akun.update', $u->id_user) }}" method="POST">
-                    @csrf
-                    @method('PUT')
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label" for="edit_username_{{ $u->id_user }}">Username / NIP / NISN <span class="text-danger">*</span></label>
-                            <input type="text" id="edit_username_{{ $u->id_user }}" name="username" class="form-control" value="{{ old('username', $u->username) }}" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label" for="edit_nama_{{ $u->id_user }}">Nama Lengkap & Gelar <span class="text-danger">*</span></label>
-                            <input type="text" id="edit_nama_{{ $u->id_user }}" name="nama_lengkap" class="form-control" value="{{ old('nama_lengkap', $u->nama_lengkap) }}" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label" for="edit_email_{{ $u->id_user }}">Email (untuk OTP)</label>
-                            <input type="email" id="edit_email_{{ $u->id_user }}" name="email" class="form-control" value="{{ old('email', $u->email) }}">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label" for="edit_role_{{ $u->id_user }}">Hak Akses / Role <span class="text-danger">*</span></label>
-                            <select id="edit_role_{{ $u->id_user }}" name="id_role" class="form-select" required>
-                                <option value="4" {{ $u->id_role == 4 ? 'selected' : '' }}>Waka Kurikulum / Administrator</option>
-                                <option value="2" {{ $u->id_role == 2 ? 'selected' : '' }}>Guru Pengampu Mata Pelajaran</option>
-                                <option value="3" {{ $u->id_role == 3 ? 'selected' : '' }}>Wali Kelas (Verifikasi Izin)</option>
-                                <option value="7" {{ $u->id_role == 7 ? 'selected' : '' }}>Guru BK (Verifikasi Izin Siswa)</option>
-                                <option value="5" {{ $u->id_role == 5 ? 'selected' : '' }}>Siswa</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label" for="edit_status_{{ $u->id_user }}">Status Akun <span class="text-danger">*</span></label>
-                            <select id="edit_status_{{ $u->id_user }}" name="is_aktif" class="form-select" required>
-                                <option value="1" {{ $u->is_aktif == 1 ? 'selected' : '' }}>Aktif</option>
-                                <option value="0" {{ $u->is_aktif == 0 ? 'selected' : '' }}>Nonaktif (Diblokir)</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-2">
-                            <label class="form-label" for="edit_pass_{{ $u->id_user }}">Ganti Password Baru (Opsional)</label>
-                            <input type="password" id="edit_pass_{{ $u->id_user }}" name="password" class="form-control" placeholder="Biarkan kosong jika tidak ingin diubah">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="fa-solid fa-floppy-disk me-1"></i> Simpan Perubahan
-                        </button>
-                    </div>
-                </form>
+<div class="modal fade" id="modalEditUser" tabindex="-1" aria-labelledby="modalEditUserLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalEditUserLabel">
+                    <i class="fa-solid fa-user-pen text-primary me-1"></i> Edit Akun Pengguna
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            <form id="formEditUser" action="#" method="POST" data-action-template="{{ route('akun.update', '__ID__') }}">
+                @csrf
+                @method('PUT')
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="edit_username">Username / NIP / NISN <span class="text-danger">*</span></label>
+                        <input type="text" id="edit_username" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="edit_nama">Nama Lengkap & Gelar <span class="text-danger">*</span></label>
+                        <input type="text" id="edit_nama" name="nama_lengkap" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="edit_email">Email (untuk OTP)</label>
+                        <input type="email" id="edit_email" name="email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="edit_role">Hak Akses / Role <span class="text-danger">*</span></label>
+                        <select id="edit_role" name="id_role" class="form-select" required>
+                            <option value="4">Waka Kurikulum / Administrator</option>
+                            <option value="2">Guru Pengampu Mata Pelajaran</option>
+                            <option value="3">Wali Kelas (Verifikasi Izin)</option>
+                            <option value="7">Guru BK (Verifikasi Izin Siswa)</option>
+                            <option value="5">Siswa</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="edit_status">Status Akun <span class="text-danger">*</span></label>
+                        <select id="edit_status" name="is_aktif" class="form-select" required>
+                            <option value="1">Aktif</option>
+                            <option value="0">Nonaktif (Diblokir)</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="edit_pass">Ganti Password Baru (Opsional)</label>
+                        <input type="password" id="edit_pass" name="password" class="form-control" placeholder="Biarkan kosong jika tidak ingin diubah" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk me-1"></i> Simpan Perubahan</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Modal Konfirmasi Hapus Akun -->
-    @if(session('id_user') != $u->id_user)
-        <div class="modal fade" id="modalDeleteUser{{ $u->id_user }}" tabindex="-1" aria-labelledby="modalDeleteUserLabel{{ $u->id_user }}" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-sm">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h6 class="modal-title fw-bold" id="modalDeleteUserLabel{{ $u->id_user }}">Konfirmasi Hapus Akun</h6>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <form action="{{ route('akun.delete', $u->id_user) }}" method="POST">
-                        @csrf
-                        @method('DELETE')
-                        <div class="modal-body text-center p-4">
-                            <i class="fa-solid fa-trash-can fa-3x text-danger mb-3 d-block"></i>
-                            <p class="mb-1 fw-bold text-dark">{{ $u->nama_lengkap }}</p>
-                            <p class="small text-muted mb-0">
-                                Username: <code>{{ $u->username }}</code>
-                            </p>
-                            <div class="alert alert-warning small mt-3 mb-0 text-start">
-                                Tindakan ini permanen dan akan menghapus akses login akun tersebut dari sistem.
-                            </div>
-                        </div>
-                        <div class="modal-footer justify-content-center">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                            <button type="submit" class="btn btn-danger btn-sm">
-                                <i class="fa-solid fa-trash-can me-1"></i> Ya, Hapus
-                            </button>
-                        </div>
-                    </form>
-                </div>
+<div class="modal fade" id="modalDeleteUser" tabindex="-1" aria-labelledby="modalDeleteUserLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h6 class="modal-title fw-bold" id="modalDeleteUserLabel">Konfirmasi Hapus Akun</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            <form id="formDeleteUser" action="#" method="POST" data-action-template="{{ route('akun.delete', '__ID__') }}">
+                @csrf
+                @method('DELETE')
+                <div class="modal-body text-center p-4">
+                    <i class="fa-solid fa-trash-can fa-3x text-danger mb-3 d-block"></i>
+                    <p class="mb-1 fw-bold text-dark" id="delete_nama"></p>
+                    <p class="small text-muted mb-0">Username: <code id="delete_username"></code></p>
+                    <div class="alert alert-warning small mt-3 mb-0 text-start">
+                        Tindakan ini permanen dan akan menghapus akses login akun tersebut dari sistem.
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger btn-sm"><i class="fa-solid fa-trash-can me-1"></i> Ya, Hapus</button>
+                </div>
+            </form>
         </div>
-    @endif
-@endforeach
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // 1. Real-time Search Filter pada tabel pengguna (Hanya 5 akun default, semua jika dicari)
-        const searchInput = document.getElementById('userTableSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', function () {
-                const query = this.value.toLowerCase().trim();
-                const allRows = document.querySelectorAll('.user-searchable-table tbody tr.user-row');
-                const moreBanners = document.querySelectorAll('.user-more-banner');
-
-                // Jika sedang mengetik di kotak cari, reset dropdown filter kelas
-                if (query !== '') {
-                    const selKelas = document.getElementById('filterKelasSiswa');
-                    if (selKelas) selKelas.value = '';
-                    const badgeK = document.getElementById('siswaFilterCount');
-                    if (badgeK) badgeK.classList.add('d-none');
-                }
-
-                if (query === '') {
-                    // Reset ke mode awal: hanya 5 baris pertama per tabel yang ditampilkan
-                    document.querySelectorAll('.user-searchable-table tbody').forEach(tbody => {
-                        const rows = tbody.querySelectorAll('tr.user-row');
-                        rows.forEach((row, idx) => {
-                            if (idx < 5) {
-                                row.classList.remove('d-none');
-                                row.style.display = '';
-                            } else {
-                                row.classList.add('d-none');
-                                row.style.display = 'none';
-                            }
-                        });
-                    });
-                    moreBanners.forEach(b => b.classList.remove('d-none'));
-                } else {
-                    // Mode pencarian aktif: tampilkan semua yang cocok dengan query
-                    allRows.forEach(row => {
-                        const searchData = row.getAttribute('data-search') || '';
-                        if (searchData.includes(query)) {
-                            row.classList.remove('d-none');
-                            row.style.display = '';
-                        } else {
-                            row.classList.add('d-none');
-                            row.style.display = 'none';
-                        }
-                    });
-                    moreBanners.forEach(b => b.classList.add('d-none'));
-                }
-            });
-        }
-
-        // Tombol Toggle "Tampilkan Semua" / "Sembunyikan"
-        document.querySelectorAll('.btn-toggle-all-rows').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const tableContainer = this.closest('.table-responsive');
-                const tbody = tableContainer ? tableContainer.querySelector('tbody') : null;
-                if (!tbody) return;
-
-                const hiddenRows = tbody.querySelectorAll('tr.user-row-overflow');
-                const totalRows = tbody.querySelectorAll('tr.user-row').length;
-                const isExpanded = this.getAttribute('data-expanded') === 'true';
-
-                if (isExpanded) {
-                    hiddenRows.forEach(r => {
-                        r.classList.add('d-none');
-                        r.style.display = 'none';
-                    });
-                    this.textContent = `Tampilkan Semua (${totalRows})`;
-                    this.setAttribute('data-expanded', 'false');
-                } else {
-                    hiddenRows.forEach(r => {
-                        r.classList.remove('d-none');
-                        r.style.display = '';
-                    });
-                    this.textContent = 'Sembunyikan (Tampilkan 5 saja)';
-                    this.setAttribute('data-expanded', 'true');
-                }
-            });
+        // Isi modal Edit / Hapus dari atribut data tombol yang diklik
+        document.addEventListener('click', function (e) {
+            const edit = e.target.closest('.btn-edit-user');
+            if (edit) {
+                const f = document.getElementById('formEditUser');
+                f.action = f.dataset.actionTemplate.replace('__ID__', edit.dataset.id);
+                document.getElementById('edit_username').value = edit.dataset.username || '';
+                document.getElementById('edit_nama').value = edit.dataset.nama || '';
+                document.getElementById('edit_email').value = edit.dataset.email || '';
+                document.getElementById('edit_role').value = edit.dataset.role || '';
+                document.getElementById('edit_status').value = edit.dataset.aktif === '0' ? '0' : '1';
+                document.getElementById('edit_pass').value = '';
+                return;
+            }
+            const del = e.target.closest('.btn-delete-user');
+            if (del) {
+                const f = document.getElementById('formDeleteUser');
+                f.action = f.dataset.actionTemplate.replace('__ID__', del.dataset.id);
+                document.getElementById('delete_nama').textContent = del.dataset.nama || '';
+                document.getElementById('delete_username').textContent = del.dataset.username || '';
+            }
         });
 
-        // 2. Fitur Hapus Massal (Bulk Delete)
+        // Hapus massal (hanya akun pada halaman yang sedang dibuka)
         const bulkBar = document.getElementById('bulkActionBar');
         const countBadge = document.getElementById('bulkSelectedCount');
         const modalCountText = document.getElementById('modalBulkCountText');
@@ -627,36 +520,33 @@
         const previewList = document.getElementById('bulkUserPreviewList');
         const btnCancel = document.getElementById('btnCancelBulkSelect');
 
-        function updateBulkUI() {
-            const checkedBoxes = document.querySelectorAll('.user-select-checkbox:checked');
-            const totalSelected = checkedBoxes.length;
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
 
-            if (totalSelected > 0) {
+        function updateBulkUI() {
+            const checked = document.querySelectorAll('.user-select-checkbox:checked');
+            if (checked.length > 0) {
                 bulkBar?.classList.remove('d-none');
                 bulkBar?.classList.add('d-flex');
-                if (countBadge) countBadge.textContent = totalSelected;
-                if (modalCountText) modalCountText.textContent = totalSelected;
-
-                // Siapkan hidden input dan preview untuk modal konfirmasi
+                if (countBadge) countBadge.textContent = checked.length;
+                if (modalCountText) modalCountText.textContent = checked.length;
                 if (hiddenContainer) {
                     hiddenContainer.innerHTML = '';
-                    checkedBoxes.forEach(cb => {
-                        const hidden = document.createElement('input');
-                        hidden.type = 'hidden';
-                        hidden.name = 'ids[]';
-                        hidden.value = cb.value;
-                        hiddenContainer.appendChild(hidden);
+                    checked.forEach(cb => {
+                        const h = document.createElement('input');
+                        h.type = 'hidden'; h.name = 'ids[]'; h.value = cb.value;
+                        hiddenContainer.appendChild(h);
                     });
                 }
-
                 if (previewList) {
                     previewList.innerHTML = '';
-                    checkedBoxes.forEach(cb => {
-                        const name = cb.getAttribute('data-name') || '-';
-                        const username = cb.getAttribute('data-username') || '-';
+                    checked.forEach(cb => {
                         const item = document.createElement('div');
                         item.className = 'd-flex justify-content-between align-items-center py-1 border-bottom border-light';
-                        item.innerHTML = `<span><strong>${name}</strong></span> <code class="text-danger small">${username}</code>`;
+                        item.innerHTML = '<span><strong>' + esc(cb.dataset.name || '-') + '</strong></span> <code class="text-danger small">' + esc(cb.dataset.username || '-') + '</code>';
                         previewList.appendChild(item);
                     });
                 }
@@ -668,116 +558,22 @@
             }
         }
 
-        // Checkbox "Pilih Semua" pada tiap header tabel
         document.querySelectorAll('.check-all-table').forEach(checkAll => {
             checkAll.addEventListener('change', function () {
-                const table = this.closest('table');
-                if (!table) return;
-
-                const isChecked = this.checked;
-                // Hanya pilih baris yang terlihat (tidak disembunyikan pencarian)
-                const visibleCheckboxes = table.querySelectorAll('tbody tr.user-row:not([style*="display: none"]) .user-select-checkbox');
-                visibleCheckboxes.forEach(cb => {
-                    cb.checked = isChecked;
-                });
-
+                document.querySelectorAll('.user-select-checkbox').forEach(cb => { cb.checked = this.checked; });
                 updateBulkUI();
             });
         });
 
-        // Event listener saat checkbox individu diklik
         document.addEventListener('change', function (e) {
-            if (e.target && e.target.classList.contains('user-select-checkbox')) {
-                updateBulkUI();
-            }
+            if (e.target && e.target.classList.contains('user-select-checkbox')) updateBulkUI();
         });
 
-        // Tombol Batal pilihan massal
         btnCancel?.addEventListener('click', function () {
-            document.querySelectorAll('.user-select-checkbox:checked').forEach(cb => {
-                cb.checked = false;
-            });
-            document.querySelectorAll('.check-all-table').forEach(cb => {
-                cb.checked = false;
-            });
+            document.querySelectorAll('.user-select-checkbox:checked').forEach(cb => { cb.checked = false; });
+            document.querySelectorAll('.check-all-table').forEach(cb => { cb.checked = false; });
             updateBulkUI();
         });
-
-        // 3. Filter Kelas pada Tab Siswa
-        const filterKelasSiswa = document.getElementById('filterKelasSiswa');
-        if (filterKelasSiswa) {
-            filterKelasSiswa.addEventListener('change', function () {
-                const selectedId = this.value.trim();
-                const selectedOption = this.options[this.selectedIndex];
-                const selectedName = selectedOption ? (selectedOption.getAttribute('data-name') || '').trim().toLowerCase() : '';
-                const pane = document.getElementById('pane-siswa');
-                if (!pane) return;
-
-                // Reset kotak pencarian global jika memilih filter kelas
-                const searchInput = document.getElementById('userTableSearch');
-                if (searchInput && searchInput.value.trim() !== '') {
-                    searchInput.value = '';
-                }
-
-                const rows = pane.querySelectorAll('tbody tr.user-row');
-                const moreBanner = pane.querySelector('.user-more-banner');
-                const countBadgeKelas = document.getElementById('siswaFilterCount');
-                let visible = 0;
-
-                const cleanSelected = selectedName.replace(/[^a-z0-9]/g, '');
-
-                rows.forEach(row => {
-                    const rowKelasId = (row.getAttribute('data-kelas-id') || '').trim();
-                    const rowKelasLabel = (row.getAttribute('data-kelas-label') || '').trim().toLowerCase();
-                    const cleanRow = rowKelasLabel.replace(/[^a-z0-9]/g, '');
-
-                    // Pencocokan:
-                    // 1. Kosong: tampilkan mode awal
-                    // 2. ID kelas persis sama (misal '48' == '48')
-                    // 3. Nama kelas alfanumerik cocok (misal 'xiibd' == 'xiibd' atau 'xrpl1' == 'xrpl1')
-                    const isMatch = (selectedId === '') ||
-                                    (rowKelasId !== '' && rowKelasId === selectedId) ||
-                                    (cleanSelected !== '' && (cleanRow === cleanSelected || cleanRow.includes(cleanSelected)));
-
-                    if (isMatch && selectedId !== '') {
-                        row.classList.remove('d-none');
-                        row.style.display = '';
-                        visible++;
-                    } else if (selectedId === '') {
-                        // Akan diatur oleh blok reset di bawah
-                    } else {
-                        row.classList.add('d-none');
-                        row.style.display = 'none';
-                    }
-                });
-
-                // Sembunyikan banner "Tampilkan Semua" ketika filter kelas aktif
-                if (moreBanner) {
-                    moreBanner.classList.toggle('d-none', selectedId !== '');
-                }
-
-                // Update badge jumlah siswa terfilter
-                if (countBadgeKelas) {
-                    if (selectedId !== '') {
-                        countBadgeKelas.textContent = visible + ' siswa ditemukan';
-                        countBadgeKelas.classList.remove('d-none');
-                    } else {
-                        countBadgeKelas.classList.add('d-none');
-                        // Reset ke mode awal: hanya tampilkan 5 baris pertama
-                        rows.forEach((row, idx) => {
-                            if (idx < 5) {
-                                row.classList.remove('d-none');
-                                row.style.display = '';
-                            } else {
-                                row.classList.add('d-none');
-                                row.style.display = 'none';
-                            }
-                        });
-                        if (moreBanner) moreBanner.classList.remove('d-none');
-                    }
-                }
-            });
-        }
     });
 </script>
 @endpush

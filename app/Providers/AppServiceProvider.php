@@ -22,12 +22,19 @@ class AppServiceProvider extends ServiceProvider
         // Atur locale Carbon ke Bahasa Indonesia
         \Carbon\Carbon::setLocale('id');
 
+        // Paksa semua URL (asset, route) memakai https di server produksi
+        if (config('app.env') === 'production') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         \Illuminate\Support\Facades\View::composer(['layouts.app', 'guru.dashboard', 'jurnal.index'], function ($view) {
-            if (in_array(session('id_role'), [2, 3])) {
-                $view->with('overdueJadwals', \App\Services\JurnalWarningService::getOverdueJadwal());
-            } else {
-                $view->with('overdueJadwals', collect([]));
+            // Dihitung sekali per permintaan (layout + halaman memakai data yang sama)
+            static $overdue = null;
+            if ($overdue === null) {
+                $berhak = in_array(session('id_role'), [2, 3]) || \App\Services\JadwalHariIni::bkMengajar();
+                $overdue = $berhak ? \App\Services\JurnalWarningService::getOverdueJadwal() : collect([]);
             }
+            $view->with('overdueJadwals', $overdue);
         });
     }
 }

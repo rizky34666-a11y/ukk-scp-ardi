@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\LeaveRequest;
 use App\Models\Kelas;
 use Illuminate\Support\Facades\DB;
+use App\Support\Audit;
 
 class KesiswaanController extends Controller
 {
@@ -35,18 +36,8 @@ class KesiswaanController extends Controller
         $selectedKelasId = null;
 
         if ($isWaliKelas) {
-            // Tentukan kelas Wali Kelas dari username (format: wali_<kelas_bersih>)
-            $username = session('username') ?? '';
-            if (str_starts_with($username, 'wali_')) {
-                $kelasBersih = substr($username, 5); // Contoh: "xiirpl2" dari "wali_xiirpl2"
-                $waliKelasId = Kelas::matchKelasId($kelasBersih, $daftarKelas);
-            }
-
-            // Fallback: cari via tabel guru -> kelas yang diajar (jika punya NIP)
-            if (!$waliKelasId) {
-                // Coba cari di session atau tinggalkan null (semua kelas)
-                $waliKelasId = session('id_kelas') ?? null;
-            }
+            // Tentukan kelas Wali Kelas: username wali_<kelas>, atau data guru bernama sama (NIP wali_<kelas>)
+            $waliKelasId = Kelas::kelasWaliDariSesi($daftarKelas) ?: (session('id_kelas') ?? null);
 
             // Ambil label kelas wali
             if ($waliKelasId) {
@@ -62,6 +53,8 @@ class KesiswaanController extends Controller
                 $query->whereHas('student', function ($q) use ($waliKelasId) {
                     $q->where('id_kelas', $waliKelasId);
                 });
+            } else {
+                $query->whereRaw('1 = 0'); // kelas perwalian tidak dikenali: jangan tampilkan kelas lain
             }
             $pendingLeaves = $query->get();
 
@@ -99,10 +92,15 @@ class KesiswaanController extends Controller
         ]);
 
         $leave = LeaveRequest::findOrFail($id);
+        $statusLama = $leave->status_approval;
         $leave->update([
             'status_approval' => $request->status_approval,
             'verified_by'     => session('id_user'),
         ]);
+
+        Audit::catat('verifikasi', 'izin', $leave->id,
+            'Mengubah status pengajuan izin #' . $leave->id . ' menjadi ' . $request->status_approval,
+            ['status_approval' => $statusLama], ['status_approval' => $request->status_approval]);
 
         return redirect()->back()->with('success', 'Status pengajuan izin berhasil diperbarui!');
     }

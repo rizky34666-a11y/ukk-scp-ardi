@@ -73,6 +73,26 @@ class RekapAbsensiController extends Controller
         // 3. Ambil seluruh data master kelas untuk filter navigasi
         $daftarKelas = Kelas::with('jurusan')->orderBy('tingkat')->orderBy('id_kelas')->get();
 
+        // 3b. Wali Kelas (3) HANYA boleh melihat kelas perwaliannya (username format: wali_<kelas>, mis. wali_xiirpl1)
+        $kelasDibatasi = false;
+        $kelasWaliLabel = null;
+        $kelasWaliTakDikenal = false;
+        if ((int) $userRole === 3) {
+            $kelasDibatasi = true;
+            $waliKelasId = Kelas::kelasWaliDariSesi($daftarKelas);
+            if ($waliKelasId) {
+                $daftarKelas = $daftarKelas->where('id_kelas', $waliKelasId)->values();
+                $filterKelas = (string) $waliKelasId;
+                $k = $daftarKelas->first();
+                $kelasWaliLabel = trim(($k->tingkat ?? '') . ' ' . ($k->jurusan?->nama_jurusan ?? $waliKelasId));
+            } else {
+                // Kelas perwalian tidak dikenali: tampilkan kosong, bukan semua kelas
+                $daftarKelas = collect();
+                $filterKelas = '__tidak_ada__';
+                $kelasWaliTakDikenal = true;
+            }
+        }
+
         $kelasGroups = [];
 
         // Helper untuk inisialisasi kelas
@@ -397,6 +417,9 @@ class RekapAbsensiController extends Controller
             'kelasGroups',
             'daftarKelas',
             'filterKelas',
+            'kelasDibatasi',
+            'kelasWaliLabel',
+            'kelasWaliTakDikenal',
             'filterStatus',
             'search',
             'period',

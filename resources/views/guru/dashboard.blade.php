@@ -1,24 +1,26 @@
 @extends('layouts.app')
 
 @php
-    $isWaliKelas = (session('id_role') == 3);
+    $isBk = (session('id_role') == 7);
+    $isWaliKelas = in_array((int) session('id_role'), [3, 7], true); // peran ganda: menampilkan modul kesiswaan
+    $labelGanda = $isBk ? 'Guru BK & Guru' : 'Wali Kelas & Guru';
 @endphp
 
-@section('title', ($isWaliKelas ? 'Dashboard Wali Kelas & Guru' : 'Dashboard Guru') . ' - UKK SCP')
+@section('title', ($isWaliKelas ? 'Dashboard ' . $labelGanda : 'Dashboard Guru') . ' - UKK SCP')
 
 @section('page-header')
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
     <div>
-        <h1 class="page-title">{{ $isWaliKelas ? 'Dashboard Wali Kelas & Guru' : 'Dashboard Guru Pengampu' }}</h1>
+        <h1 class="page-title">{{ $isWaliKelas ? 'Dashboard ' . $labelGanda : 'Dashboard Guru Pengampu' }}</h1>
         <p class="page-subtitle">
             Selamat datang kembali, <strong>{{ session('nama_lengkap') ?? 'Bapak/Ibu Guru' }}</strong>. 
-            {{ $isWaliKelas ? 'Anda memiliki akses ganda sebagai Guru Pengampu KBM dan Wali Kelas.' : 'Silakan pilih modul kerja harian Anda.' }}
+            {{ $isWaliKelas ? 'Anda memiliki akses ganda sebagai Guru Pengampu KBM dan ' . ($isBk ? 'Guru BK.' : 'Wali Kelas.') : 'Silakan pilih modul kerja harian Anda.' }}
         </p>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center">
         @if($isWaliKelas)
             <span class="badge-soft badge-soft-info px-3 py-2">
-                <i class="fa-solid fa-user-shield me-1"></i> Peran Ganda: Wali Kelas & Guru
+                <i class="fa-solid fa-user-shield me-1"></i> Peran Ganda: {{ $labelGanda }}
             </span>
         @endif
         <span class="badge-soft badge-soft-primary px-3 py-2">
@@ -30,6 +32,8 @@
 @endsection
 
 @section('content')
+@include('partials.jadwal-hari-ini', ['jadwalHariIni' => $jadwalHariIni ?? collect(), 'mode' => 'guru'])
+
 <div class="row g-4 justify-content-center">
     <!-- Modul 1: Jurnal Mengajar -->
     <div class="col-md-6 {{ $isWaliKelas ? 'col-lg-6' : 'col-lg-5' }}">
@@ -84,7 +88,7 @@
         @php
             $pendingIzin = \App\Models\LeaveRequest::where('status_approval', 'Pending')->count();
         @endphp
-        <!-- Modul 3 (Khusus Wali Kelas): Verifikasi Izin Siswa -->
+        <!-- Modul 3 (Wali Kelas / Guru BK): Verifikasi Izin Siswa -->
         <div class="col-md-6 col-lg-6">
             <div class="feature-card p-4">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -113,7 +117,7 @@
             </div>
         </div>
 
-        <!-- Modul 4 (Khusus Wali Kelas): Rekap Absensi Siswa -->
+        <!-- Modul 4 (Wali Kelas / Guru BK): Rekap Absensi Siswa -->
         <div class="col-md-6 col-lg-6">
             <div class="feature-card p-4">
                 <div class="feature-icon-wrapper bg-info-subtle text-info">

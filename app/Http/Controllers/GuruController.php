@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\JadwalHariIni;
 
 class GuruController extends Controller
 {
@@ -16,13 +17,16 @@ class GuruController extends Controller
         $role = session('id_role');
 
         // Role 2 = Guru Pengampu, Role 3 = Wali Kelas (dual-role: juga bisa akses jurnal & jadwal)
-        if ($role != 2 && $role != 3) {
+        $bkMengajar = JadwalHariIni::bkMengajar();
+        if ($role != 2 && $role != 3 && !$bkMengajar) {
             if ($role == 7) {
                 return redirect()->route('kesiswaan.izin.index');
             }
             return redirect()->route('login')->withErrors(['error' => 'Akses ditolak! Halaman ini khusus untuk Guru.']);
         }
 
-        return view('guru.dashboard');
+        $jadwalHariIni = JadwalHariIni::untukGuru(JadwalHariIni::guruLogin());
+
+        return view('guru.dashboard', compact('jadwalHariIni'));
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\LeaveRequest;
 use App\Models\Siswa;
 use Illuminate\Support\Facades\DB;
+use App\Support\Audit;
 
 class SiswaIzinController extends Controller
 {
@@ -61,7 +62,7 @@ class SiswaIzinController extends Controller
             $docPath = 'uploads/izin/' . $filename;
         }
 
-        LeaveRequest::create([
+        $izinBaru = LeaveRequest::create([
             'student_id' => $siswa->id_siswa, // Menggunakan id_siswa yang tepat dari tabel siswa
             'applicant_id' => session('id_user'),
             'start_date' => $request->start_date,
@@ -70,6 +71,10 @@ class SiswaIzinController extends Controller
             'document_path' => $docPath,
             'status_approval' => 'Pending',
         ]);
+
+        Audit::catat('tambah', 'izin', $izinBaru->id, 'Mengajukan izin/sakit tanggal '
+            . $request->start_date . ' s.d. ' . $request->end_date, null,
+            ['start_date' => $request->start_date, 'end_date' => $request->end_date, 'reason' => $request->reason, 'document_path' => $docPath]);
 
         return redirect()->back()->with('success', 'Pengajuan izin berhasil dikirim dan menunggu verifikasi Wali Kelas/BK.');
     }

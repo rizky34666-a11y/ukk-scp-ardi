@@ -22,6 +22,11 @@
                 <i class="fa-solid fa-lock-open"></i> Akses Input Aktif
             </span>
         @endif
+        @if($role == 4)
+            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalImportJadwal">
+                <i class="fa-solid fa-file-excel me-1"></i> Import Jadwal
+            </button>
+        @endif
         <a href="{{ $backUrl }}" class="btn btn-outline-secondary btn-sm">
             <i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard
         </a>
@@ -274,7 +279,7 @@
 
             <div class="app-card-body p-0">
                 @php
-                    // Buka semua grup saat sedang mencari/memfilter; jika tidak, hanya grup pertama
+                    // Semua grup tertutup; klik nama kelas untuk membuka
                     $sedangFilter = $filter['q'] !== '' || $filter['hari'] !== '' || $filter['kelas'] !== '';
                 @endphp
 
@@ -291,7 +296,7 @@
                                 $namaKelas = $k0
                                     ? (trim(($k0->tingkat ?? '') . ' ' . ($k0->jurusan?->nama_jurusan ?? '')) ?: 'Kelas ' . $idKelas)
                                     : 'Kelas ' . $idKelas;
-                                $terbuka = $sedangFilter || $loop->first;
+                                $terbuka = $sedangFilter && $jadwalGroups->count() === 1; // tertutup secara bawaan; otomatis terbuka hanya jika hasil pencarian tepat satu kelas
                                 $jumlahMapel = $rows->pluck('id_mapel')->unique()->count();
                                 $perHari = $rows->groupBy('hari');
                             @endphp
@@ -371,6 +376,82 @@
     </div>
 </div>
 
+@if($role == 4)
+{{-- Modal Import Jadwal dari Excel --}}
+<div class="modal fade" id="modalImportJadwal" tabindex="-1" aria-labelledby="modalImportJadwalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold" id="modalImportJadwalLabel"><i class="fa-solid fa-file-excel me-2"></i>Import Jadwal dari Excel</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('jadwal.import.periksa') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    @if(isset($config) && $config->is_schedule_locked)
+                        <div class="alert alert-warning small">
+                            <i class="fa-solid fa-lock me-1"></i> Jadwal sedang <strong>dikunci</strong>. Buka kunci jadwal lebih dulu agar impor dapat disimpan.
+                        </div>
+                    @endif
+                    <div class="alert alert-info small mb-3">
+                        <strong>Langkah:</strong> (1) unduh format Excel, (2) isi jadwal, (3) unggah di sini. Sistem memeriksa dulu dan menampilkan <strong>pratinjau</strong>; belum ada data yang berubah sampai Anda menekan Simpan.
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <a class="btn btn-outline-success btn-sm" href="{{ route('jadwal.import.template') }}"><i class="fa-solid fa-download me-1"></i> Format kosong</a>
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('jadwal.import.template', ['putaran' => 'Putaran 1']) }}"><i class="fa-solid fa-download me-1"></i> Jadwal Putaran 1 saat ini</a>
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('jadwal.import.template', ['putaran' => 'Putaran 2']) }}"><i class="fa-solid fa-download me-1"></i> Jadwal Putaran 2 saat ini</a>
+                        </div>
+                        <div class="mt-2 text-muted">Mengunduh jadwal saat ini berguna untuk mengedit sebagian saja lalu mengunggah ulang.</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="imp_tahun">Tahun Ajaran <span class="text-danger">*</span></label>
+                            <select class="form-select" id="imp_tahun" name="id_tahun_ajaran" required>
+                                @foreach($tahunAjaran as $ta)
+                                    <option value="{{ $ta->id_tahun_ajaran }}" {{ !empty($ta->is_aktif) ? 'selected' : '' }}>{{ $ta->nama_semester }}{{ !empty($ta->is_aktif) ? ' (aktif)' : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="imp_putaran">Putaran <span class="text-danger">*</span></label>
+                            <select class="form-select" id="imp_putaran" name="putaran" required>
+                                <option value="Putaran 1" {{ ($cycleAktif ?? '') === 'Putaran 1' ? 'selected' : '' }}>Putaran 1{{ ($cycleAktif ?? '') === 'Putaran 1' ? ' (aktif)' : '' }}</option>
+                                <option value="Putaran 2" {{ ($cycleAktif ?? '') === 'Putaran 2' ? 'selected' : '' }}>Putaran 2{{ ($cycleAktif ?? '') === 'Putaran 2' ? ' (aktif)' : '' }}</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Cara memasukkan <span class="text-danger">*</span></label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mode" id="imp_mode_timpa" value="timpa" checked>
+                                <label class="form-check-label" for="imp_mode_timpa">
+                                    <strong>Timpa jadwal kelas yang ada di file</strong>
+                                    <span class="d-block small text-muted">Jadwal kelas-kelas di file pada putaran ini diganti sesuai file. Baris yang identik dibiarkan (jurnalnya aman); kelas yang tidak ada di file tidak disentuh.</span>
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="radio" name="mode" id="imp_mode_tambah" value="tambah">
+                                <label class="form-check-label" for="imp_mode_tambah">
+                                    <strong>Tambah saja</strong>
+                                    <span class="d-block small text-muted">Menambah jadwal baru tanpa menghapus apa pun. Baris yang bentrok dengan jadwal yang sudah ada akan ditolak.</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="imp_file">File Excel (.xlsx) atau CSV <span class="text-danger">*</span></label>
+                            <input type="file" class="form-control" id="imp_file" name="file_excel" accept=".xlsx,.csv" required>
+                            <div class="form-text">Maksimal 10MB. Satu baris = satu sesi pelajaran.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success btn-sm"><i class="fa-solid fa-magnifying-glass-chart me-1"></i> Periksa &amp; Lihat Pratinjau</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- Modal Struktur Jam Pelajaran & Istirahat --}}
 <div class="modal fade" id="modalStrukturSesi" tabindex="-1" aria-labelledby="modalStrukturSesiLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -388,83 +469,51 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover mb-0 text-center align-middle" style="font-size: 0.88rem;">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 25%;">Jam Ke-</th>
-                                <th style="width: 45%;">Waktu</th>
-                                <th style="width: 30%;">Keterangan</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="table-light text-muted">
-                                <td>-</td>
-                                <td>07.00 - 07.15</td>
-                                <td><span class="badge bg-secondary">tadarus</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">1</td>
-                                <td>07.15 - 07.55</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">2</td>
-                                <td>07.55 - 08.35</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">3</td>
-                                <td>08.35 - 09.15</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr class="table-warning bg-opacity-25">
-                                <td class="fw-bold text-warning-emphasis">IST 1</td>
-                                <td class="fw-semibold">09.15 - 09.30</td>
-                                <td><span class="badge bg-warning text-dark">Istirahat Pagi (15 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">4</td>
-                                <td>09.30 - 10.10</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">5</td>
-                                <td>10.10 - 10.50</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">6</td>
-                                <td>10.50 - 11.30</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr class="table-warning bg-opacity-25">
-                                <td class="fw-bold text-warning-emphasis">IST 2</td>
-                                <td class="fw-semibold">11.30 - 12.30</td>
-                                <td><span class="badge bg-warning text-dark">Ishoma (60 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">7</td>
-                                <td>12.30 - 13.10</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">8</td>
-                                <td>13.10 - 13.50</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">9</td>
-                                <td>13.50 - 14.30</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-bold text-primary">10</td>
-                                <td>14.30 - 15.10</td>
-                                <td><span class="badge bg-light text-dark border">KBM (40 Menit)</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <ul class="nav nav-pills gap-1 p-2 bg-light border-bottom" role="tablist">
+                    @foreach($sesiPerHari as $hariSesi => $listSesi)
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link py-1 px-3 {{ $loop->first ? 'active' : '' }}" data-bs-toggle="pill" data-bs-target="#sesi-{{ $hariSesi }}" type="button" role="tab">{{ $hariSesi }}</button>
+                        </li>
+                    @endforeach
+                </ul>
+                <div class="tab-content">
+                    @foreach($sesiPerHari as $hariSesi => $listSesi)
+                        <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="sesi-{{ $hariSesi }}" role="tabpanel">
+                            <div class="table-responsive">
+                                <table class="table table-bordered mb-0 text-center align-middle" style="font-size: 0.88rem;">
+                                    <thead class="table-light">
+                                        <tr><th style="width: 25%;">Jam Ke-</th><th style="width: 45%;">Waktu</th><th style="width: 30%;">Keterangan</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @if(isset($kegiatanHari[$hariSesi]))
+                                            <tr class="table-light text-muted">
+                                                <td>-</td>
+                                                <td>{{ str_replace(':', '.', $kegiatanHari[$hariSesi]['mulai']) }} - {{ str_replace(':', '.', $kegiatanHari[$hariSesi]['selesai']) }}</td>
+                                                <td><span class="badge bg-secondary">{{ $kegiatanHari[$hariSesi]['nama'] }}</span></td>
+                                            </tr>
+                                        @endif
+                                        @php $prev = null; @endphp
+                                        @foreach($listSesi as $num => $sesi)
+                                            @if($prev && $prev['selesai'] !== $sesi['mulai'])
+                                                @php $selisih = (strtotime($sesi['mulai']) - strtotime($prev['selesai'])) / 60; @endphp
+                                                <tr class="table-warning bg-opacity-25">
+                                                    <td class="fw-bold text-warning-emphasis">IST</td>
+                                                    <td class="fw-semibold">{{ str_replace(':', '.', $prev['selesai']) }} - {{ str_replace(':', '.', $sesi['mulai']) }}</td>
+                                                    <td><span class="badge bg-warning text-dark">{{ $selisih >= 60 ? 'Ishoma' : 'Istirahat' }} ({{ (int) $selisih }} Menit)</span></td>
+                                                </tr>
+                                            @endif
+                                            <tr>
+                                                <td class="fw-bold text-primary">{{ $num }}</td>
+                                                <td>{{ str_replace(':', '.', $sesi['mulai']) }} - {{ str_replace(':', '.', $sesi['selesai']) }}</td>
+                                                <td><span class="badge bg-light text-dark border">KBM ({{ $sesi['kbm_menit'] }} Menit)</span></td>
+                                            </tr>
+                                            @php $prev = $sesi; @endphp
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
             <div class="modal-footer py-2 px-3 bg-light">
@@ -487,8 +536,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const textJumlah = document.getElementById('textJumlahJam');
     const textIstirahat = document.getElementById('textPeringatanIstirahat');
 
+    const SESI_PER_HARI = @json($sesiPerHari);
+    const hariSelect = document.getElementById('hari');
+
+    // Jam pelajaran berbeda tiap hari (Senin upacara, Selasa literasi, Jumat 8 jam)
+    function terapkanSesiHari() {
+        const sesi = SESI_PER_HARI[hariSelect ? hariSelect.value : ''] || SESI_PER_HARI['Rabu'];
+        [[sesiMulai, 'mulai'], [sesiSelesai, 'selesai']].forEach(function(par) {
+            if (!par[0]) return;
+            Array.from(par[0].options).forEach(function(opt) {
+                if (!opt.value) return;
+                const d = sesi[opt.value];
+                opt.hidden = !d;
+                opt.disabled = !d;
+                if (d) {
+                    opt.dataset.mulai = d.mulai;
+                    opt.dataset.selesai = d.selesai;
+                    opt.textContent = 'Jam ' + opt.value + ' (' + d[par[1]] + ')';
+                }
+            });
+            if (par[0].value && !sesi[par[0].value]) par[0].value = '';
+        });
+    }
+
     if (sesiMulai && sesiSelesai) {
         function updateSesiWaktu() {
+            const sesiHariIni = SESI_PER_HARI[hariSelect ? hariSelect.value : ''] || SESI_PER_HARI['Rabu'];
             const valMulai = parseInt(sesiMulai.value);
             const valSelesai = parseInt(sesiSelesai.value);
 
@@ -528,11 +601,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     const m = parseInt(sesiMulai.value);
                     const s = parseInt(sesiSelesai.value);
                     let infoIstirahat = [];
-                    if (m <= 3 && s >= 4) {
-                        infoIstirahat.push('Mencakup Istirahat 1 (09.15 - 09.30)');
+                    if (m <= 3 && s >= 4 && sesiHariIni[3] && sesiHariIni[4]) {
+                        infoIstirahat.push('Mencakup Istirahat 1 (' + sesiHariIni[3].selesai.replace(':', '.') + ' - ' + sesiHariIni[4].mulai.replace(':', '.') + ')');
                     }
-                    if (m <= 6 && s >= 7) {
-                        infoIstirahat.push('Mencakup Ishoma (11.30 - 12.30)');
+                    if (m <= 6 && s >= 7 && sesiHariIni[6] && sesiHariIni[7]) {
+                        infoIstirahat.push('Mencakup Ishoma (' + sesiHariIni[6].selesai.replace(':', '.') + ' - ' + sesiHariIni[7].mulai.replace(':', '.') + ')');
                     }
 
                     if (infoIstirahat.length > 0 && textIstirahat) {
@@ -549,8 +622,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         sesiMulai.addEventListener('change', updateSesiWaktu);
         sesiSelesai.addEventListener('change', updateSesiWaktu);
+        if (hariSelect) {
+            hariSelect.addEventListener('change', function() { terapkanSesiHari(); updateSesiWaktu(); });
+        }
 
         // Inisialisasi awal saat halaman dibuka
+        terapkanSesiHari();
         if (sesiMulai.value) {
             updateSesiWaktu();
         }

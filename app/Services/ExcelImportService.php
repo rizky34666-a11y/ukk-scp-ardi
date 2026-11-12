@@ -192,7 +192,11 @@ class ExcelImportService
             }
 
             $rows = [];
+            $rowNumbers = []; // nomor baris asli di Excel, sejajar dengan $rows
+            $barisKe = 0;
             foreach ($sheetXml->sheetData->row as $row) {
+                $barisKe++;
+                $nomorAsli = (int) ($row['r'] ?? 0) ?: $barisKe;
                 $rowArray = [];
                 $maxColIndex = 0;
 
@@ -226,13 +230,15 @@ class ExcelImportService
 
                 if (count(array_filter($normalizedRow)) > 0) {
                     $rows[] = $normalizedRow;
+                    $rowNumbers[] = $nomorAsli;
                 }
             }
 
             if (!empty($rows)) {
                 $allSheetsResult[] = [
-                    'sheet_name' => $info['name'],
-                    'rows'       => $rows,
+                    'sheet_name'  => $info['name'],
+                    'rows'        => $rows,
+                    'row_numbers' => $rowNumbers,
                 ];
             }
         }

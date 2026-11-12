@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'UKK SCP - Sistem Manajemen KBM & Perizinan')</title>
 
-    <!-- Google Fonts: Plus Jakarta Sans -->
+    <!-- Koneksi awal ke CDN agar aset lebih cepat dimuat di HP -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font dimuat tanpa menghalangi tampilan halaman (teks tampil dulu dengan font cadangan) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap"></noscript>
 
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -20,7 +24,10 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('css/ui-polish.css') }}?v={{ @filemtime(public_path('css/ui-polish.css')) }}">
     
+    <link rel="stylesheet" href="{{ asset('css/official.css') }}?v={{ @filemtime(public_path('css/official.css')) }}">
+
     @stack('styles')
+    @include('partials.pwa-head')
 </head>
 <body>
 
@@ -30,15 +37,25 @@
         if ($role == 4) $homeRoute = route('waka.dashboard');
         elseif ($role == 2) $homeRoute = route('guru.dashboard');
         elseif ($role == 3) $homeRoute = route('guru.dashboard');
-        elseif ($role == 7) $homeRoute = route('kesiswaan.izin.index');
-        elseif ($role == 5) $homeRoute = route('siswa.izin.index');
+        elseif ($role == 7) $homeRoute = \App\Services\JadwalHariIni::bkMengajar() ? route('guru.dashboard') : route('kesiswaan.izin.index');
+        elseif ($role == 5) $homeRoute = route('siswa.dashboard');
 
         $roleName = 'Pengguna';
         if ($role == 4) $roleName = 'Waka Kurikulum';
         elseif ($role == 2) $roleName = 'Guru Pengampu';
         elseif ($role == 3) $roleName = 'Wali Kelas & Guru';
-        elseif ($role == 7) $roleName = 'Guru BK';
+        elseif ($role == 7) $roleName = \App\Services\JadwalHariIni::bkMengajar() ? 'Guru BK & Guru' : 'Guru BK';
         elseif ($role == 5) $roleName = 'Siswa';
+
+        $jabatanResmi = match((int) $role) {
+            4 => 'Wakil Kepala Sekolah Bidang Kurikulum',
+            2 => 'Guru Pengampu',
+            3 => 'Wali Kelas & Guru Pengampu',
+            7 => \App\Services\JadwalHariIni::bkMengajar() ? 'Guru BK & Guru Pengampu' : 'Guru Bimbingan dan Konseling',
+            5 => 'Peserta Didik',
+            default => 'Pengguna',
+        };
+        $judulHalaman = trim(\Illuminate\Support\Str::before(html_entity_decode($__env->yieldContent('title', 'Sistem KBM'), ENT_QUOTES, 'UTF-8'), ' - UKK'));
 
         $currentUser = null;
         if (session()->has('id_user')) {
@@ -57,8 +74,24 @@
             $pendingIzinCount = \App\Models\LeaveRequest::where('status_approval', 'Pending')->count();
         }
 
+        $izinGuruPending = 0;
+        if ($role == 4) {
+            try { $izinGuruPending = \App\Models\IzinGuru::where('status', 'Menunggu')->count(); } catch (\Throwable $e) { $izinGuruPending = 0; }
+        }
+
+        $tukarMasuk = 0;
+        if (in_array($role, [2, 3, 7])) {
+            try {
+                $guruTukar = \App\Services\JadwalHariIni::guruLogin();
+                if ($guruTukar) {
+                    $tukarMasuk = \App\Models\TukarJadwal::where('id_guru_tujuan', $guruTukar->id_guru)
+                        ->where('status', 'Menunggu')->where('batas_waktu', '>', now())->count();
+                }
+            } catch (\Throwable $e) { $tukarMasuk = 0; }
+        }
+
         $guruOverdueCount = 0;
-        if (in_array($role, [2, 3])) {
+        if (in_array($role, [2, 3]) || \App\Services\JadwalHariIni::bkMengajar()) {
             $guruOverdueCount = isset($overdueJadwals) ? $overdueJadwals->count() : 0;
         }
 
@@ -83,12 +116,12 @@
             <div class="sidebar-brand-wrapper">
                 <a class="sidebar-brand" href="{{ $homeRoute }}">
                     <div class="sidebar-brand-icon">
-                        <img src="{{ asset('image/logosmk.png') }}" alt="Logo SMK">
+                        <img src="{{ asset('image/logosmk-sm.png') }}" alt="Logo SMK">
                     </div>
 
                     <div class="sidebar-brand-text">
                         <span class="brand-name">UKK SCP</span>
-                        <span class="brand-subtitle">KBM & Perizinan</span>
+                        <span class="brand-subtitle">SMK Negeri 1 Bantul</span>
                     </div>
                 </a>
                 <button type="button" class="sidebar-close-btn d-lg-none" id="sidebarCloseBtn" aria-label="Tutup Menu">
@@ -111,9 +144,22 @@
                         <i class="fa-regular fa-calendar-days nav-icon"></i>
                         <span class="nav-text">Kelola Jadwal</span>
                     </a>
+                    <a class="sidebar-link {{ request()->routeIs('tabel-jadwal.*') ? 'active' : '' }}" href="{{ route('tabel-jadwal.index') }}">
+                        <i class="fa-solid fa-table-cells nav-icon"></i>
+                        <span class="nav-text">Tabel Jadwal</span>
+                    </a>
                     <a class="sidebar-link {{ request()->routeIs('waka.jurnal.*') ? 'active' : '' }}" href="{{ route('waka.jurnal.rekap') }}">
                         <i class="fa-solid fa-clipboard-check nav-icon"></i>
                         <span class="nav-text">Rekap Jurnal</span>
+                    </a>
+                    <a class="sidebar-link {{ request()->routeIs('waka.izin-guru*') ? 'active' : '' }}" href="{{ route('waka.izin-guru') }}">
+                        <i class="fa-solid fa-user-clock nav-icon"></i>
+                        <span class="nav-text">Izin Guru</span>
+                        @if($izinGuruPending > 0)
+                            <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size: 0.68rem;" title="{{ $izinGuruPending }} pengajuan izin guru menunggu">
+                                {{ $izinGuruPending }} Baru
+                            </span>
+                        @endif
                     </a>
                     <a class="sidebar-link {{ request()->routeIs('rekap.absensi.*') ? 'active' : '' }}" href="{{ route('rekap.absensi.index') }}">
                         <i class="fa-solid fa-user-xmark nav-icon"></i>
@@ -125,10 +171,22 @@
                         @endif
                     </a>
 
+                    <div class="sidebar-section-label">Master Data</div>
+                    @foreach(['siswa' => ['Siswa', 'fa-user-graduate'], 'mata-pelajaran' => ['Mata Pelajaran', 'fa-book']] as $kodeMaster => [$labelMaster, $ikonMaster])
+                        <a class="sidebar-link {{ request()->routeIs('master.*') && request()->route('entitas') === $kodeMaster ? 'active' : '' }}" href="{{ route('master.index', $kodeMaster) }}">
+                            <i class="fa-solid {{ $ikonMaster }} nav-icon"></i>
+                            <span class="nav-text">{{ $labelMaster }}</span>
+                        </a>
+                    @endforeach
+
                     <div class="sidebar-section-label">Konfigurasi</div>
                     <a class="sidebar-link {{ request()->routeIs('akun.*') ? 'active' : '' }}" href="{{ route('akun.index') }}">
                         <i class="fa-solid fa-users-gear nav-icon"></i>
                         <span class="nav-text">Manajemen Akun</span>
+                    </a>
+                    <a class="sidebar-link {{ request()->routeIs('waka.audit-log') ? 'active' : '' }}" href="{{ route('waka.audit-log') }}">
+                        <i class="fa-solid fa-shield-halved nav-icon"></i>
+                        <span class="nav-text">Log Aktivitas</span>
                     </a>
 
                 @elseif($role == 2)
@@ -144,12 +202,31 @@
                         <i class="fa-regular fa-calendar-days nav-icon"></i>
                         <span class="nav-text">Jadwal Pelajaran</span>
                     </a>
+                    <a class="sidebar-link {{ request()->routeIs('tabel-jadwal.*') ? 'active' : '' }}" href="{{ route('tabel-jadwal.index') }}">
+                        <i class="fa-solid fa-table-cells nav-icon"></i>
+                        <span class="nav-text">Tabel Jadwal</span>
+                    </a>
                     <a class="sidebar-link {{ request()->routeIs('jurnal.*') ? 'active' : '' }}" href="{{ route('jurnal.index') }}">
                         <i class="fa-solid fa-book-bookmark nav-icon"></i>
                         <span class="nav-text">Jurnal Mengajar</span>
                         @if($guruOverdueCount > 0)
                             <span class="badge rounded-pill bg-danger ms-auto" style="font-size: 0.68rem;" title="{{ $guruOverdueCount }} sesi KBM belum diisi jurnalnya">
                                 {{ $guruOverdueCount }} Terlambat
+                            </span>
+                        @endif
+                    </a>
+
+                    <a class="sidebar-link {{ request()->routeIs('guru.izin.*') ? 'active' : '' }}" href="{{ route('guru.izin.index') }}">
+                        <i class="fa-solid fa-envelope-open-text nav-icon"></i>
+                        <span class="nav-text">Izin Mengajar</span>
+                    </a>
+
+                    <a class="sidebar-link {{ request()->routeIs('guru.tukar.*') ? 'active' : '' }}" href="{{ route('guru.tukar.index') }}">
+                        <i class="fa-solid fa-right-left nav-icon"></i>
+                        <span class="nav-text">Tukar Ruangan</span>
+                        @if($tukarMasuk > 0)
+                            <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size: 0.68rem;" title="{{ $tukarMasuk }} permintaan tukar jadwal menunggu persetujuan Anda">
+                                {{ $tukarMasuk }} Baru
                             </span>
                         @endif
                     </a>
@@ -164,6 +241,10 @@
                     <a class="sidebar-link {{ request()->routeIs('jadwal.*') ? 'active' : '' }}" href="{{ route('jadwal.index') }}">
                         <i class="fa-regular fa-calendar-days nav-icon"></i>
                         <span class="nav-text">Jadwal Pelajaran</span>
+                    </a>
+                    <a class="sidebar-link {{ request()->routeIs('tabel-jadwal.*') ? 'active' : '' }}" href="{{ route('tabel-jadwal.index') }}">
+                        <i class="fa-solid fa-table-cells nav-icon"></i>
+                        <span class="nav-text">Tabel Jadwal</span>
                     </a>
                     <a class="sidebar-link {{ request()->routeIs('jurnal.*') ? 'active' : '' }}" href="{{ route('jurnal.index') }}">
                         <i class="fa-solid fa-book-bookmark nav-icon"></i>
@@ -190,8 +271,47 @@
                         <span class="nav-text">Rekap Absensi Siswa</span>
                     </a>
 
+                    <a class="sidebar-link {{ request()->routeIs('guru.izin.*') ? 'active' : '' }}" href="{{ route('guru.izin.index') }}">
+                        <i class="fa-solid fa-envelope-open-text nav-icon"></i>
+                        <span class="nav-text">Izin Mengajar</span>
+                    </a>
+
+                    <a class="sidebar-link {{ request()->routeIs('guru.tukar.*') ? 'active' : '' }}" href="{{ route('guru.tukar.index') }}">
+                        <i class="fa-solid fa-right-left nav-icon"></i>
+                        <span class="nav-text">Tukar Ruangan</span>
+                        @if($tukarMasuk > 0)
+                            <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size: 0.68rem;" title="{{ $tukarMasuk }} permintaan tukar jadwal menunggu persetujuan Anda">
+                                {{ $tukarMasuk }} Baru
+                            </span>
+                        @endif
+                    </a>
+
                 @elseif($role == 7)
-                    <!-- Role: Guru BK -->
+                    <!-- Role: Guru BK (peran ganda bila juga mengajar) -->
+                    @if(\App\Services\JadwalHariIni::bkMengajar())
+                        <div class="sidebar-section-label">Aktivitas Mengajar</div>
+                        <a class="sidebar-link {{ request()->routeIs('guru.dashboard') ? 'active' : '' }}" href="{{ route('guru.dashboard') }}">
+                            <i class="fa-solid fa-gauge-high nav-icon"></i>
+                            <span class="nav-text">Dashboard Guru</span>
+                        </a>
+                        <a class="sidebar-link {{ request()->routeIs('jadwal.*') ? 'active' : '' }}" href="{{ route('jadwal.index') }}">
+                            <i class="fa-regular fa-calendar-days nav-icon"></i>
+                            <span class="nav-text">Jadwal Pelajaran</span>
+                        </a>
+                        <a class="sidebar-link {{ request()->routeIs('tabel-jadwal.*') ? 'active' : '' }}" href="{{ route('tabel-jadwal.index') }}">
+                            <i class="fa-solid fa-table-cells nav-icon"></i>
+                            <span class="nav-text">Tabel Jadwal</span>
+                        </a>
+                        <a class="sidebar-link {{ request()->routeIs('jurnal.*') ? 'active' : '' }}" href="{{ route('jurnal.index') }}">
+                            <i class="fa-solid fa-book-bookmark nav-icon"></i>
+                            <span class="nav-text">Jurnal Mengajar</span>
+                            @if($guruOverdueCount > 0)
+                                <span class="badge rounded-pill bg-danger ms-auto" style="font-size: 0.68rem;" title="{{ $guruOverdueCount }} sesi KBM belum diisi jurnalnya">
+                                    {{ $guruOverdueCount }} Terlambat
+                                </span>
+                            @endif
+                        </a>
+                    @endif
                     <div class="sidebar-section-label">Layanan BK & Kesiswaan</div>
                     <a class="sidebar-link {{ request()->routeIs('kesiswaan.izin.*') ? 'active' : '' }}" href="{{ route('kesiswaan.izin.index') }}">
                         <i class="fa-solid fa-clipboard-list nav-icon"></i>
@@ -207,9 +327,32 @@
                         <span class="nav-text">Rekap Absensi Siswa</span>
                     </a>
 
+                    <a class="sidebar-link {{ request()->routeIs('guru.izin.*') ? 'active' : '' }}" href="{{ route('guru.izin.index') }}">
+                        <i class="fa-solid fa-envelope-open-text nav-icon"></i>
+                        <span class="nav-text">Izin Mengajar</span>
+                    </a>
+
+                    <a class="sidebar-link {{ request()->routeIs('guru.tukar.*') ? 'active' : '' }}" href="{{ route('guru.tukar.index') }}">
+                        <i class="fa-solid fa-right-left nav-icon"></i>
+                        <span class="nav-text">Tukar Ruangan</span>
+                        @if($tukarMasuk > 0)
+                            <span class="badge rounded-pill bg-warning text-dark ms-auto" style="font-size: 0.68rem;" title="{{ $tukarMasuk }} permintaan tukar jadwal menunggu persetujuan Anda">
+                                {{ $tukarMasuk }} Baru
+                            </span>
+                        @endif
+                    </a>
+
                 @elseif($role == 5)
                     <!-- Role: Siswa -->
                     <div class="sidebar-section-label">Layanan Siswa</div>
+                    <a class="sidebar-link {{ request()->routeIs('siswa.dashboard') ? 'active' : '' }}" href="{{ route('siswa.dashboard') }}">
+                        <i class="fa-solid fa-gauge-high nav-icon"></i>
+                        <span class="nav-text">Jadwal Hari Ini</span>
+                    </a>
+                    <a class="sidebar-link {{ request()->routeIs('tabel-jadwal.*') ? 'active' : '' }}" href="{{ route('tabel-jadwal.index') }}">
+                        <i class="fa-solid fa-table-cells nav-icon"></i>
+                        <span class="nav-text">Jadwal Pelajaran</span>
+                    </a>
                     <a class="sidebar-link {{ request()->routeIs('siswa.izin.*') ? 'active' : '' }}" href="{{ route('siswa.izin.index') }}">
                         <i class="fa-solid fa-file-signature nav-icon"></i>
                         <span class="nav-text">Pengajuan Izin</span>
@@ -263,16 +406,21 @@
                     <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Toggle Sidebar Menu">
                         <i class="fa-solid fa-bars"></i>
                     </button>
-                    <div class="topbar-breadcrumb">
-                        <span class="bc-prefix text-muted"><i class="fa-solid fa-school text-primary me-1"></i> UKK SCP</span>
-                        <i class="bc-sep fa-solid fa-chevron-right text-muted opacity-50" style="font-size: 0.65rem;"></i>
-                        <span class="bc-current">
-                            @yield('title', 'Sistem KBM')
-                        </span>
+                    <div class="kop-text">
+                        <div class="kop-line">Pemerintah Daerah Istimewa Yogyakarta &middot; Dinas Pendidikan, Pemuda, dan Olahraga</div>
+                        <div class="kop-name">SMK Negeri 1 Bantul</div>
                     </div>
                 </div>
 
                 <div class="topbar-right">
+                    @if($role == 4 && $izinGuruPending > 0)
+                        <a href="{{ route('waka.izin-guru') }}" class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 py-1 px-2 text-decoration-none shadow-xs" title="{{ $izinGuruPending }} pengajuan izin guru menunggu persetujuan">
+                            <i class="fa-solid fa-user-clock text-warning"></i>
+                            <span class="badge bg-danger rounded-pill">{{ $izinGuruPending }}</span>
+                            <span class="d-none d-md-inline small fw-semibold text-dark">Izin Guru</span>
+                        </a>
+                    @endif
+
                     @if(in_array($role, [3, 4, 7]) && $pendingIzinCount > 0)
                         <a href="{{ route('kesiswaan.izin.index') }}" class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1 py-1 px-2 text-decoration-none shadow-xs" title="{{ $pendingIzinCount }} permohonan izin menunggu verifikasi">
                             <i class="fa-solid fa-bell text-warning"></i>
@@ -281,7 +429,7 @@
                         </a>
                     @endif
                     
-                    @if(in_array($role, [2, 3]) && $guruOverdueCount > 0)
+                    @if((in_array($role, [2, 3]) || \App\Services\JadwalHariIni::bkMengajar()) && $guruOverdueCount > 0)
                         <a href="{{ route('jurnal.index') }}" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1 py-1 px-2 text-decoration-none shadow-xs" title="{{ $guruOverdueCount }} sesi jurnal terlambat diisi">
                             <i class="fa-solid fa-triangle-exclamation text-danger"></i>
                             <span class="badge bg-danger rounded-pill">{{ $guruOverdueCount }}</span>
@@ -289,18 +437,14 @@
                         </a>
                     @endif
 
-                    <div class="topbar-date-badge">
-                        <i class="fa-regular fa-calendar text-primary"></i>
-                        <span>{{ \Carbon\Carbon::now()->translatedFormat('l, d M Y') }}</span>
+                    <div class="kop-right">
+                        <div>{{ \Carbon\Carbon::now()->translatedFormat('l, j F Y') }}</div>
+                        <a href="{{ route('profile.index') }}" class="kop-role text-decoration-none">{{ $jabatanResmi }}</a>
                     </div>
-                    <a href="{{ route('profile.index') }}" class="topbar-user-pill d-none d-sm-flex align-items-center gap-2 text-decoration-none" title="Profil Saya">
-                        @if(!empty($authUserFotoUrl))
-                            <img src="{{ $authUserFotoUrl }}" alt="Foto" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid #cbd5e1;">
-                        @endif
-                        <span class="badge-role">{{ $roleName }}</span>
-                    </a>
                 </div>
             </header>
+
+            <div class="official-crumb"><a href="{{ $homeRoute }}">Beranda</a> / {{ $judulHalaman }}</div>
 
             <!-- Sub Header / Judul Halaman -->
             @hasSection('page-header')
@@ -352,14 +496,32 @@
 
             <!-- Footer -->
             <footer class="app-footer">
-                <span>&copy; {{ date('Y') }} <strong>UKK SCP</strong> &mdash; Sistem Manajemen KBM, Jadwal, & Perizinan</span>
-                <span>SMK Negeri 1 Bantul &bull; Versi 1.0</span>
+                <span>&copy; {{ date('Y') }} SMK Negeri 1 Bantul &middot; <strong>UKK SCP</strong> &mdash; Sistem Manajemen KBM, Jadwal, dan Perizinan</span>
+                <span>Dinas Pendidikan, Pemuda, dan Olahraga DIY &middot; Versi 1.0</span>
             </footer>
         </div>
     </div>
 
     <!-- Bootstrap 5.3 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Label kolom otomatis untuk tampilan kartu tabel di HP -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('table.app-table').forEach(function (table) {
+                const heads = Array.from(table.querySelectorAll(':scope > thead th')).map(function (th) {
+                    return th.textContent.replace(/\s+/g, ' ').trim();
+                });
+                table.querySelectorAll(':scope > tbody > tr').forEach(function (tr) {
+                    Array.from(tr.children).forEach(function (td, i) {
+                        if (td.tagName === 'TD' && !td.hasAttribute('colspan') && heads[i] && !td.dataset.label) {
+                            td.dataset.label = heads[i];
+                        }
+                    });
+                });
+            });
+        });
+    </script>
 
     <!-- Sidebar Responsive Drawer Script -->
     <script>
@@ -708,5 +870,6 @@
     </script>
 
     @stack('scripts')
+    @include('partials.pwa-register')
 </body>
 </html>

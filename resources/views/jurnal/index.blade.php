@@ -68,6 +68,12 @@
                             @endif
                         </label>
                         
+                        @if(!empty($izinHariIni))
+                            <div class="alert alert-info py-2 px-3 small mb-2">
+                                <i class="fa-solid fa-envelope-circle-check me-1"></i>
+                                Anda memiliki <strong>izin mengajar yang disetujui</strong> untuk hari ini ({{ $izinHariIni->jenis }}). Isi jurnal hanya jika Anda tetap mengajar.
+                            </div>
+                        @endif
                         <div class="input-group">
                             <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-calendar-check"></i></span>
                             <select id="schedule_id" name="schedule_id" class="form-select {{ in_array($selectedSchedule, $overdueIds) ? 'border-danger' : '' }}" required>
@@ -219,13 +225,9 @@
                                 <p class="text-muted small mb-3">Foto dokumentasi kegiatan belajar mengajar wajib diambil secara langsung dari kamera perangkat saat sesi KBM berlangsung.</p>
                                 
                                 <div class="d-flex flex-wrap justify-content-center gap-2">
-                                    <button type="button" class="btn btn-primary px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-2" onclick="triggerDeviceCamera()">
+                                    <button type="button" class="btn btn-primary px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-2" onclick="openCameraModal()">
                                         <i class="fa-solid fa-camera fa-lg"></i>
                                         <span>Buka Kamera & Ambil Foto</span>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-primary px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2" onclick="openCameraModal()" title="Buka video stream live viewfinder">
-                                        <i class="fa-solid fa-video me-1"></i>
-                                        <span>Live Viewfinder Web</span>
                                     </button>
                                 </div>
                                 <div class="form-text small text-danger mt-2">
@@ -247,7 +249,7 @@
                                     </span>
                                     <span class="fw-semibold text-dark small d-block" id="previewFileName">foto_kbm.jpg</span>
                                     <div class="mt-2 d-flex justify-content-center gap-2">
-                                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-3" onclick="triggerDeviceCamera()">
+                                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-3" onclick="openCameraModal()">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i> Ambil Ulang Foto
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2" onclick="clearPhotoUpload()">
@@ -729,11 +731,8 @@
                                     @endif
                                     <input type="hidden" name="photo_base64" id="edit_photo_base64_{{ $item->id }}">
                                     <div class="d-flex gap-1">
-                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 py-1 fw-semibold" onclick="triggerDeviceCameraForEdit({{ $item->id }})">
+                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 py-1 fw-semibold" onclick="openCameraModalForEdit({{ $item->id }})">
                                             <i class="fa-solid fa-camera me-1"></i> Ambil Foto Kamera
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="openCameraModalForEdit({{ $item->id }})" title="Gunakan live viewfinder webcam">
-                                            <i class="fa-solid fa-video"></i>
                                         </button>
                                     </div>
                                     <div id="edit_photo_preview_box_{{ $item->id }}" class="mt-2 d-none text-center p-2 bg-white rounded border">
@@ -952,10 +951,7 @@
                                 Pastikan izin akses kamera telah diizinkan pada browser Anda. Pengambilan foto wajib menggunakan kamera langsung perangkat.
                             </p>
                             <div class="d-flex gap-2 justify-content-center flex-wrap">
-                                <button type="button" class="btn btn-primary btn-sm fw-bold px-3 py-2 shadow-xs" onclick="triggerDeviceCamera()">
-                                    <i class="fa-solid fa-camera me-1"></i> Buka Kamera Bawaan HP / Laptop
-                                </button>
-                                <button type="button" class="btn btn-outline-light btn-sm px-3 py-2 shadow-xs" onclick="startCameraStream(currentFacingMode)">
+                                <button type="button" class="btn btn-primary btn-sm fw-bold px-3 py-2 shadow-xs" onclick="startCameraStream(currentFacingMode)">
                                     <i class="fa-solid fa-arrows-rotate me-1"></i> Coba Hubungkan Lagi
                                 </button>
                             </div>
@@ -987,10 +983,6 @@
                     {{-- Shutter Button --}}
                     <button type="button" id="btnShutter" class="btn btn-danger rounded-circle p-0 shadow-lg d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; border: 4px solid rgba(255,255,255,0.4);" onclick="takeSnapshot()" title="Jepret Foto">
                         <i class="fa-solid fa-camera fs-4 text-white"></i>
-                    </button>
-
-                    <button type="button" class="btn btn-outline-light btn-sm px-2" onclick="triggerDeviceCamera()" title="Gunakan aplikasi kamera bawaan perangkat">
-                        <i class="fa-solid fa-mobile-screen me-1"></i> Kamera Bawaan
                     </button>
                 </div>
 
@@ -1131,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!photoBase64 || !photoBase64.value) {
                 e.preventDefault();
                 alert('Foto dokumentasi KBM wajib diambil langsung dari kamera saat kegiatan belajar mengajar!');
-                triggerDeviceCamera();
+                openCameraModal();
                 return false;
             }
         });

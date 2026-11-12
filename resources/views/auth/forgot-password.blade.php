@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('css/ui-polish.css') }}?v={{ @filemtime(public_path('css/ui-polish.css')) }}">
+    @include('partials.pwa-head')
 </head>
 <body>
 
@@ -25,7 +26,7 @@
             {{-- Header --}}
             <div class="auth-header">
                 <div class="auth-brand-badge">
-                    <img src="{{ asset('image/logosmk.png') }}" alt="Logo SMK">
+                    <img src="{{ asset('image/logosmk-sm.png') }}" alt="Logo SMK">
                 </div>
                 <h1 class="auth-title">Atur Ulang Password</h1>
                 <p class="auth-subtitle">Verifikasi keamanan via kode OTP ke email terdaftar</p>
@@ -308,5 +309,6 @@
         .step-line { flex:1; height:2px; background:#e2e8f0; margin:0 .6rem 1.35rem; border-radius:2px; }
         .step-line.active { background:linear-gradient(90deg,#059669,#0369a1); }
     </style>
+    @include('partials.pwa-register')
 </body>
 </html>

@@ -19,6 +19,7 @@
     <!-- Custom Style -->
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('css/ui-polish.css') }}?v={{ @filemtime(public_path('css/ui-polish.css')) }}">
+    @include('partials.pwa-head')
 </head>
 <body>
 
@@ -109,5 +110,6 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @include('partials.pwa-register')
 </body>
 </html>

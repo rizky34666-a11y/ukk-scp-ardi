@@ -38,6 +38,45 @@ class Kelas extends Model
     }
 
     /**
+     * Kelas perwalian milik Wali Kelas yang sedang login.
+     * Urutan: (1) username berformat wali_<kelas>; (2) tabel guru, baris atas nama yang sama
+     * dengan NIP berformat wali_<kelas> (untuk akun yang login memakai NIP).
+     */
+    public static function kelasWaliDariSesi($daftarKelas = null): ?string
+    {
+        $username = (string) session('username');
+
+        if (str_starts_with($username, 'wali_')) {
+            $id = self::matchKelasId(substr($username, 5), $daftarKelas);
+            if ($id) {
+                return $id;
+            }
+        }
+
+        $nama = session('nama_lengkap');
+        $guruLogin = \App\Models\Guru::where('nip', $username)->first();
+        $namaGuru = $guruLogin?->nama_guru ?: $nama;
+        if (!$namaGuru) {
+            return null;
+        }
+
+        $kodeWali = \App\Models\Guru::where('nama_guru', $namaGuru)
+            ->where('nip', 'like', 'wali%')
+            ->pluck('nip');
+        foreach ($kodeWali as $kode) {
+            if (!str_starts_with($kode, 'wali_')) {
+                continue;
+            }
+            $id = self::matchKelasId(substr($kode, 5), $daftarKelas);
+            if ($id) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Memetakan teks nama kelas (misal "X RPL 1", "10 RPL 1", "X-RPL-1", "xiirpl2") ke id_kelas di database
      */
     public static function matchKelasId(?string $search, $daftarKelas = null): ?string

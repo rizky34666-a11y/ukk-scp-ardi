@@ -19,6 +19,7 @@
     <!-- Custom Style -->
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('css/ui-polish.css') }}?v={{ @filemtime(public_path('css/ui-polish.css')) }}">
+    @include('partials.pwa-head')
 </head>
 <body>
 
@@ -27,7 +28,7 @@
             <!-- Header Logo & Title -->
             <div class="auth-header">
                 <div class="auth-brand-badge">
-                    <img src="{{ asset('image/logosmk.png') }}" alt="Logo SMK">
+                    <img src="{{ asset('image/logosmk-sm.png') }}" alt="Logo SMK">
                 </div>
                 <h1 class="auth-title">Masuk ke Sistem</h1>
                 <p class="auth-subtitle">Sistem Penjadwalan, Jurnal Guru &amp; Perizinan</p>
@@ -93,12 +94,6 @@
                     <i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Sekarang
                 </button>
 
-                <div class="text-center pt-2 border-top">
-                    <p class="mb-0 text-muted small">
-                        Belum punya akun siswa?
-                        <a href="{{ route('register') }}" class="fw-semibold text-decoration-none" style="color:#44b8f8;">Daftar Akun Baru</a>
-                    </p>
-                </div>
             </form>
 
             <!-- Petunjuk Pengguna -->
@@ -130,5 +125,6 @@
             }
         });
     </script>
+    @include('partials.pwa-register')
 </body>
 </html>

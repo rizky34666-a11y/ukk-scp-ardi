@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use App\Services\OtpService;
+use App\Support\Audit;
 
 class AuthController extends Controller
 {
@@ -14,6 +17,11 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    /** Batas percobaan login: gagal berturut-turut sebelum akun/IP dikunci sementara. */
+    private const LOGIN_MAKS_PERCOBAAN = 5;      // per kombinasi username + IP
+    private const LOGIN_MAKS_PER_IP    = 40;     // per IP (jaringan sekolah dipakai bersama, jadi lebih longgar)
+    private const LOGIN_KUNCI_DETIK    = 600;    // 10 menit
+
     public function login(Request $request)
     {
         $request->validate([
@@ -21,9 +29,34 @@ class AuthController extends Controller
             'password' => 'required'
         ]);
 
+        $kunciUser = 'login:u:' . Str::lower($request->username) . '|' . $request->ip();
+        $kunciIp   = 'login:ip:' . $request->ip();
+
+        // Terkunci sementara karena terlalu banyak percobaan gagal
+        if (RateLimiter::tooManyAttempts($kunciUser, self::LOGIN_MAKS_PERCOBAAN)
+            || RateLimiter::tooManyAttempts($kunciIp, self::LOGIN_MAKS_PER_IP)) {
+            $detik = max(
+                RateLimiter::availableIn($kunciUser),
+                RateLimiter::availableIn($kunciIp)
+            );
+            Audit::catat('login_terkunci', 'auth', null,
+                'Percobaan login ditolak karena terkunci sementara (username: ' . $request->username . ')',
+                null, null, ['username' => $request->username]);
+
+            return back()
+                ->withInput($request->only('username'))
+                ->withErrors(['username' => 'Terlalu banyak percobaan login yang gagal. Coba lagi dalam '
+                    . max(1, (int) ceil($detik / 60)) . ' menit.']);
+        }
+
         $user = DB::table('users')->where('username', $request->username)->first();
 
         if ($user && Hash::check($request->password, $user->password_hash)) {
+            RateLimiter::clear($kunciUser);
+
+            // Cegah session fixation: ganti ID sesi setelah login berhasil
+            $request->session()->regenerate();
+
             session([
                 'id_user' => $user->id_user,
                 'username' => $user->username,
@@ -31,10 +64,12 @@ class AuthController extends Controller
                 'id_role' => $user->id_role
             ]);
 
+            Audit::catat('login', 'auth', $user->id_user, 'Login berhasil');
+
             // REDIRECT BERDASARKAN ID_ROLE SECARA SPESIFIK
             // 4 = Waka Kurikulum
             // 3 = Wali Kelas (Dual role: KBM Guru + Verifikasi Izin)
-            // 7 = Guru BK (ke verifikasi izin kesiswaan)
+            // 7 = Guru BK (ke verifikasi izin kesiswaan; jika juga mengajar: dashboard guru, peran ganda)
             // 2 = Guru Pengampu
             // 5 = Siswa
             switch ($user->id_role) {
@@ -43,17 +78,38 @@ class AuthController extends Controller
                 case 3:
                     return redirect()->route('guru.dashboard')->with('success', 'Berhasil login sebagai Wali Kelas & Guru!');
                 case 7:
+                    // Guru BK yang juga mengajar = peran ganda (seperti Wali Kelas): masuk lewat dashboard guru
+                    $mengajar = \App\Services\JadwalHariIni::punyaJadwalMengajar($user->username, $user->nama_lengkap);
+                    session(['bk_mengajar' => $mengajar]);
+                    if ($mengajar) {
+                        return redirect()->route('guru.dashboard')->with('success', 'Berhasil login sebagai Guru BK & Guru!');
+                    }
                     return redirect()->route('kesiswaan.izin.index')->with('success', 'Berhasil login sebagai Guru BK!');
                 case 2:
                     return redirect()->route('guru.dashboard')->with('success', 'Berhasil login!');
                 case 5:
-                    return redirect()->route('siswa.izin.index')->with('success', 'Berhasil login sebagai Siswa!');
+                    return redirect()->route('siswa.dashboard')->with('success', 'Berhasil login sebagai Siswa!');
                 default:
                     return redirect()->route('login')->withErrors(['username' => 'Role pengguna tidak dikenali sistem.']);
             }
         }
 
-        return back()->withErrors(['username' => 'Username atau password salah.']);
+        // Gagal: catat percobaan, lalu beri tahu sisa kesempatan
+        RateLimiter::hit($kunciUser, self::LOGIN_KUNCI_DETIK);
+        RateLimiter::hit($kunciIp, self::LOGIN_KUNCI_DETIK);
+        Audit::catat('login_gagal', 'auth', $user->id_user ?? null,
+            'Login gagal untuk username: ' . $request->username, null, null,
+            ['id_user' => $user->id_user ?? null, 'username' => $request->username, 'nama_lengkap' => $user->nama_lengkap ?? null, 'id_role' => $user->id_role ?? null]);
+
+        $sisa = RateLimiter::remaining($kunciUser, self::LOGIN_MAKS_PERCOBAAN);
+        $pesan = 'Username atau password salah.';
+        if ($sisa > 0 && $sisa <= 2) {
+            $pesan .= ' Sisa percobaan: ' . $sisa . ' kali sebelum akun dikunci sementara.';
+        } elseif ($sisa <= 0) {
+            $pesan .= ' Akun dikunci sementara selama ' . (int) (self::LOGIN_KUNCI_DETIK / 60) . ' menit.';
+        }
+
+        return back()->withInput($request->only('username'))->withErrors(['username' => $pesan]);
     }
 
     public function showRegisterForm()
@@ -82,6 +138,9 @@ class AuthController extends Controller
             'id_role' => 5, // Otomatis diatur sebagai Siswa
             'is_aktif' => 1,
         ]);
+
+        Audit::catat('registrasi', 'auth', $request->username, 'Registrasi akun siswa baru: ' . $request->nama_lengkap, null, null,
+            ['username' => $request->username, 'nama_lengkap' => $request->nama_lengkap, 'id_role' => 5]);
 
         return redirect()->route('login')->with('success', 'Registrasi berhasil! Silakan login.');
     }
@@ -226,6 +285,11 @@ class AuthController extends Controller
         // Bersihkan status verifikasi
         OtpService::clearVerification($request->username);
 
+        $uTarget = DB::table('users')->where('username', $request->username)->first();
+        Audit::catat('ganti_password', 'auth', $uTarget->id_user ?? null,
+            'Password diatur ulang lewat Lupa Password (OTP)', null, null,
+            ['id_user' => $uTarget->id_user ?? null, 'username' => $request->username, 'nama_lengkap' => $uTarget->nama_lengkap ?? null, 'id_role' => $uTarget->id_role ?? null]);
+
         return redirect()->route('login')
             ->with('success', 'Password berhasil diperbarui! Silakan login dengan password baru Anda.');
     }
@@ -337,6 +401,7 @@ class AuthController extends Controller
         ]);
 
         OtpService::clearVerification($user->username);
+        Audit::catat('ganti_password', 'auth', $idUser, 'Mengganti password dari halaman Profil (OTP)');
 
         if ($isJsonRequest) {
             return response()->json([
@@ -350,7 +415,11 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        if (session()->has('id_user')) {
+            Audit::catat('logout', 'auth', session('id_user'), 'Logout');
+        }
         $request->session()->flush();
+        $request->session()->regenerateToken();
         return redirect()->route('login')->with('success', 'Berhasil logout!');
     }
 }

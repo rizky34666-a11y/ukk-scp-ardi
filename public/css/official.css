@@ -1,0 +1,141 @@
+/* ==========================================================================
+   TEMA RESMI INSTANSI — SMK Negeri 1 Bantul
+   Navy + emas, datar, tipografi tegas. Dimuat paling akhir (setelah ui-polish).
+   Hanya berlaku di dalam .app-wrapper (halaman setelah login).
+   ========================================================================== */
+.app-wrapper {
+    --font-main: 'Source Sans 3', 'Segoe UI', Roboto, Arial, sans-serif;
+    --navy: #1f3a68;
+    --navy-dark: #172d52;
+    --navy-light: #2a4a80;
+    --gold: #b8932e;
+    --line: #dde2ea;
+    --paper: #f3f5f9;
+
+    --page-bg: var(--paper);
+    --page-bg-soft: #f7f8fb;
+    --page-gradient: none;
+    --card-border: var(--line);
+    --card-shadow-sm: none;
+    --card-shadow: 0 1px 2px rgba(23, 45, 82, .06);
+    --card-shadow-md: 0 2px 6px rgba(23, 45, 82, .10);
+
+    --color-dark: var(--navy);
+    --color-dark-deep: var(--navy);
+    --color-dark-soft: #34486b;
+    --color-dark-muted: #5d6b82;
+    --color-dark-border: var(--navy-dark);
+    --color-nav: var(--navy);
+    --color-nav-hover: var(--navy-dark);
+    --accent-blue: var(--navy);
+    --accent-blue-hover: var(--navy-dark);
+    --accent-blue-soft: #e8edf6;
+    --accent-blue-border: #c5d0e4;
+    --topbar-height: auto;
+    --sidebar-width: 241px;
+    --radius: 4px;
+    --radius-sm: 3px;
+    --radius-xs: 3px;
+    font-family: var(--font-main);
+}
+.app-wrapper, .app-wrapper .btn, .app-wrapper input, .app-wrapper select, .app-wrapper textarea { font-family: var(--font-main); }
+.app-main { background: var(--paper) !important; }
+
+/* ── Sidebar ── */
+.app-sidebar { background: var(--navy) !important; border-right: 0; }
+.sidebar-brand-wrapper { padding: 1.05rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,.10); }
+.sidebar-brand-icon { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid var(--gold); padding: 2px; }
+.sidebar-brand-icon img { border-radius: 50%; }
+.sidebar-brand-text .brand-name { font-size: 1rem; font-weight: 700; letter-spacing: 0; color: #fff; }
+.sidebar-brand-text .brand-subtitle { font-size: .75rem; color: #c9d4e8; letter-spacing: 0; text-transform: none; }
+.sidebar-nav { padding: .5rem 0 1rem; }
+.sidebar-section-label { font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #9fb0cf; padding: 1.1rem 1.25rem .45rem; }
+.sidebar-link { border-radius: 0; margin: 0; padding: .72rem 1.25rem .72rem 1.4rem; font-size: .92rem; font-weight: 500; color: #e3e9f5; gap: 0; }
+.sidebar-link .nav-icon { display: none; }
+.sidebar-link:hover { background: rgba(255,255,255,.07); color: #fff; }
+.sidebar-link.active { background: var(--navy-light); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 var(--gold); }
+.sidebar-link.active::before { display: none; }
+.sidebar-user { background: transparent; border-top: 1px solid rgba(255,255,255,.10); padding: .95rem 1.25rem; }
+.sidebar-user-avatar { border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; }
+.sidebar-user-name { font-size: .88rem; font-weight: 700; color: #fff; }
+.sidebar-user-role { font-size: .75rem; color: #b6c3dc; }
+.sidebar-logout-btn { color: #c9d4e8; }
+
+/* ── Kop / header instansi ── */
+.app-topbar {
+    background: #fff; height: auto; min-height: 70px; padding: .8rem 2rem;
+    border-bottom: 3px solid var(--gold); box-shadow: none; align-items: center;
+}
+.kop-text { min-width: 0; }
+.kop-line { font-size: .7rem; letter-spacing: .07em; text-transform: uppercase; color: #5d6b82; line-height: 1.3; }
+.kop-name { font-size: 1.28rem; font-weight: 700; color: var(--navy); letter-spacing: .01em; line-height: 1.25; text-transform: uppercase; }
+.kop-right { text-align: right; font-size: .85rem; color: #4a5872; line-height: 1.45; }
+.kop-right .kop-role { color: #4a5872; }
+.topbar-right { gap: 1rem; }
+.topbar-right .btn { border-radius: 3px; }
+.sidebar-toggle-btn { border-radius: 3px; background: #fff; border-color: var(--line); color: var(--navy); }
+
+/* ── Breadcrumb & judul halaman ── */
+.official-crumb { padding: 1.15rem 2rem 0; font-size: .8rem; color: #5d6b82; }
+.official-crumb a { color: #5d6b82; text-decoration: none; }
+.official-crumb a:hover { color: var(--navy); text-decoration: underline; }
+.page-header-wrapper { background: transparent; border: 0; box-shadow: none; padding: .5rem 2rem 0; }
+.page-header-wrapper::after { display: none; }
+.page-title { font-size: 1.7rem; font-weight: 700; color: var(--navy); letter-spacing: 0; margin-bottom: .35rem; }
+.page-subtitle { font-size: .92rem; color: #5d6b82; }
+.app-content { padding: 1.15rem 2rem 1.5rem; }
+
+/* ── Kartu, statistik ── */
+.app-card, .feature-card, .stat-card { background: #fff; border: 1px solid var(--line); border-radius: 4px; box-shadow: none; }
+.app-card:hover, .feature-card:hover, .stat-card:hover { transform: none; box-shadow: 0 1px 4px rgba(23,45,82,.08); border-color: #c5cddb; }
+.app-card-header { background: #fff; border-bottom: 1px solid var(--line); }
+.app-card-title { color: var(--navy); font-weight: 700; font-size: 1.02rem; }
+.app-card-title i, .feature-icon-wrapper, .stat-icon { background: #e8edf6; color: var(--navy); border-radius: 3px; }
+.stat-value { color: var(--navy); font-size: 1.9rem; font-weight: 700; letter-spacing: 0; }
+.stat-label { text-transform: none; font-size: .88rem; font-weight: 500; letter-spacing: 0; color: #5d6b82; }
+
+/* ── Tabel resmi: kepala navy ── */
+.app-table-wrapper { border-radius: 3px; box-shadow: none; border: 1px solid var(--line); }
+.app-table thead th { background: var(--navy); color: #fff; font-size: .85rem; font-weight: 700; text-transform: none; letter-spacing: 0; border-bottom: 0; }
+.app-table tbody td { color: #2b3a55; border-bottom: 1px solid #e8ebf1; }
+.app-table tbody tr:nth-child(even) td { background: #f8f9fc; }
+.app-table tbody tr:hover td { background: #eef2f9; }
+
+/* ── Tombol & form ── */
+.app-wrapper .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; border-radius: 3px; }
+.app-wrapper .btn-primary:hover, .app-wrapper .btn-primary:focus { background: var(--navy-dark); border-color: var(--navy-dark); }
+.app-wrapper .btn-outline-primary { color: var(--navy); border-color: var(--navy); border-radius: 3px; background: #fff; }
+.app-wrapper .btn-outline-primary:hover { background: var(--navy); color: #fff; }
+.app-wrapper .btn, .app-wrapper .form-control, .app-wrapper .form-select { border-radius: 3px; }
+.app-wrapper .form-control:focus, .app-wrapper .form-select:focus { border-color: var(--navy-light); box-shadow: 0 0 0 .18rem rgba(31,58,104,.15); }
+.app-wrapper .text-primary { color: var(--navy) !important; }
+.app-wrapper .bg-primary { background-color: var(--navy) !important; }
+.app-wrapper .border-primary { border-color: var(--navy) !important; }
+.app-wrapper .bg-primary-subtle { background-color: #e8edf6 !important; }
+.badge-soft { border-radius: 3px; }
+
+/* ── Footer ── */
+.app-footer { background: #fff; background-image: none; border-top: 1px solid var(--line); color: #5d6b82; font-size: .8rem; padding: 1rem 2rem; }
+.app-footer strong { color: var(--navy); }
+
+/* ── Mobile ── */
+@media (max-width: 991.98px) {
+    .app-topbar { padding: .65rem 1rem; gap: .75rem; }
+    .kop-line { display: none; }
+    .kop-name { font-size: 1rem; }
+    .kop-right .kop-role { display: none; }
+    .official-crumb { padding: .9rem 1rem 0; }
+    .page-header-wrapper { padding: .4rem 1rem 0; }
+    .page-title { font-size: 1.35rem; }
+    .app-content { padding: 1rem; }
+    .app-footer { padding: .9rem 1rem; flex-direction: column; align-items: flex-start; gap: .25rem; }
+    .topbar-right .btn .small { display: none; }
+}
+
+/* ── Sisa elemen biru → navy ── */
+.app-wrapper .page-link { color: var(--navy); border-color: var(--line); border-radius: 3px; }
+.app-wrapper .page-link:hover { background: #e8edf6; color: var(--navy-dark); }
+.app-wrapper .page-item.active .page-link { background: var(--navy); border-color: var(--navy); color: #fff; }
+.app-wrapper .app-content a:not(.btn):not(.dropdown-item):not(.page-link) { color: var(--navy-light); }
+.app-wrapper .app-content a:not(.btn):not(.page-link):hover { color: var(--navy-dark); }
+.app-wrapper .badge.bg-primary { background-color: var(--navy) !important; }

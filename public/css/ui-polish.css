@@ -115,3 +115,118 @@ img { max-width: 100%; }
         scroll-behavior: auto !important;
     }
 }
+
+
+/* ==========================================================================
+   MOBILE v2 — tabel jadi kartu, bayangan menu, dan perapian HP
+   ========================================================================== */
+/* Bayangan menu hanya saat menu terbuka (sebelumnya "bocor" di tepi kiri layar) */
+@media (max-width: 991.98px) {
+    .app-sidebar { box-shadow: none; }
+    .app-sidebar.sidebar-open { box-shadow: 4px 0 24px rgba(8, 24, 60, 0.40); }
+}
+
+@media (max-width: 575.98px) {
+    /* Tabel data utama (.app-table) tampil sebagai kartu bertumpuk; label kolom diisi otomatis dari <thead> */
+    .app-table { min-width: 0 !important; width: 100%; }
+    .app-table > thead { display: none; }
+    .app-table, .app-table > tbody, .app-table > tbody > tr, .app-table > tbody > tr > td { display: block; width: 100%; }
+    .app-table > tbody > tr { padding: .8rem 1rem; border-bottom: 1px solid var(--color-border, #dbe6f5); }
+    .app-table > tbody > tr:last-child { border-bottom: 0; }
+    .app-table > tbody > tr > td {
+        border: 0 !important; padding: .28rem 0 !important; text-align: left !important;
+        min-width: 0 !important; width: 100% !important; overflow-wrap: anywhere;
+    }
+    .app-table > tbody > tr > td[data-label]::before {
+        content: attr(data-label); display: block; margin-bottom: .1rem;
+        font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6b7a99;
+    }
+    .app-table > tbody > tr > td:empty { display: none; }
+    .app-table > tbody > tr > td[colspan] { text-align: center !important; }
+    .app-table > tbody > tr > td.text-center .d-flex { justify-content: flex-start; }
+    /* Tombol aksi di dalam kartu: tersusun rapi, mudah disentuh */
+    .app-table > tbody > tr > td .btn-sm { min-height: 36px; }
+}
+
+
+/* ==========================================================================
+   Halaman login/daftar/lupa password — foto gedung sekolah + kartu kaca transparan
+   ========================================================================== */
+.auth-wrapper {
+    background:
+        linear-gradient(160deg, rgba(6, 30, 72, 0.50) 0%, rgba(10, 52, 110, 0.30) 55%, rgba(6, 20, 50, 0.55) 100%),
+        url('../image/gedung-sekolah.jpg') center center / cover no-repeat;
+    background-color: #0b3a78; /* cadangan jika foto belum termuat */
+}
+.auth-wrapper::before { display: none; }
+
+/* Kartu kaca: transparan + blur agar foto tetap terlihat */
+.auth-card {
+    background-color: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 24px 60px rgba(2, 12, 36, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+/* Garis biru di atas kartu dihilangkan */
+.auth-card::before { display: none; }
+
+/* Teks di atas kaca: putih agar kontras */
+.auth-card .auth-title,
+.auth-card .form-label,
+.auth-card h1, .auth-card h2, .auth-card h3, .auth-card h4, .auth-card h5, .auth-card h6 {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.auth-card .auth-subtitle,
+.auth-card .text-muted,
+.auth-card .form-text,
+.auth-card p.small {
+    color: rgba(255, 255, 255, 0.88) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.auth-card a:not(.btn) { color: #bfe6ff !important; }
+.auth-card a:not(.btn):hover { color: #fff !important; }
+.auth-card .border-top { border-color: rgba(255, 255, 255, 0.30) !important; }
+
+/* Kolom isian tetap terang agar mudah dibaca */
+.auth-card .form-control,
+.auth-card .form-select {
+    background-color: rgba(255, 255, 255, 0.92);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #0f2a5c;
+}
+.auth-card .input-group-text,
+.auth-card .btn-outline-secondary {
+    background-color: rgba(255, 255, 255, 0.78);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #1560c4;
+}
+.auth-card .btn-outline-secondary:hover { background-color: #fff; color: #0f2a5c; }
+
+/* Kotak petunjuk di bawah form */
+.auth-card .mt-4.p-2.rounded {
+    background: rgba(255, 255, 255, 0.20) !important;
+    border: 1px solid rgba(255, 255, 255, 0.40) !important;
+    color: #fff !important;
+}
+.auth-card .mt-4.p-2.rounded i { color: #bfe6ff !important; }
+
+/* Notifikasi tetap solid agar pesan penting terbaca jelas */
+.auth-card .app-alert { background: rgba(255, 255, 255, 0.95); text-shadow: none; }
+.auth-card .app-alert, .auth-card .app-alert * { color: inherit; text-shadow: none; }
+
+/* Indikator langkah (Lupa Password) di atas kaca */
+.auth-card .step-item { color: rgba(255, 255, 255, 0.72); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.auth-card .step-item.active { color: #fff; }
+.auth-card .step-item.done { color: #b6f2d3; }
+.auth-card .step-item .step-num { background: rgba(255, 255, 255, 0.82); color: #475569; text-shadow: none; }
+.auth-card .step-item.active .step-num { background: #0ea5e9; color: #fff; box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.30); }
+.auth-card .step-item.done .step-num { background: #10b981; color: #fff; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.28); }
+.auth-card .step-line { background: rgba(255, 255, 255, 0.45); }
+.auth-card .step-line.active { background: linear-gradient(90deg, #34d399, #38bdf8); }
+
+/* Jika perangkat tidak mendukung blur, pakai latar lebih pekat */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .auth-card { background-color: rgba(12, 44, 98, 0.78); }
+}

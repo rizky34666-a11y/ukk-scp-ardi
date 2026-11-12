@@ -11,7 +11,7 @@
     <div class="d-flex gap-2">
         <span class="badge-soft badge-soft-primary px-3 py-2">
             <i class="fa-solid fa-arrows-rotate"></i>
-            Putaran Aktif: <strong>Putaran {{ $config?->active_cycle ?? '-' }}</strong>
+            Putaran Aktif: <strong>{{ $config?->active_cycle ? (str_starts_with((string) $config->active_cycle, 'Putaran') ? $config->active_cycle : 'Putaran ' . $config->active_cycle) : '-' }}</strong>
         </span>
         <span class="badge-soft {{ ($config?->is_schedule_locked ?? false) ? 'badge-soft-danger' : 'badge-soft-success' }} px-3 py-2">
             <i class="fa-solid {{ ($config?->is_schedule_locked ?? false) ? 'fa-lock' : 'fa-lock-open' }}"></i>
@@ -116,10 +116,10 @@
                             Status Putaran Blok Aktif <span class="text-danger">*</span>
                         </label>
                         <select id="active_cycle" name="active_cycle" class="form-select" required>
-                            <option value="1" {{ ($config?->active_cycle ?? '1') == '1' ? 'selected' : '' }}>
+                            <option value="1" {{ str_contains((string) ($config?->active_cycle ?? '1'), '1') ? 'selected' : '' }}>
                                 Putaran 1 (Siklus Blok Ganjil/Minggu Pertama)
                             </option>
-                            <option value="2" {{ ($config?->active_cycle ?? '') == '2' ? 'selected' : '' }}>
+                            <option value="2" {{ str_contains((string) ($config?->active_cycle ?? ''), '2') ? 'selected' : '' }}>
                                 Putaran 2 (Siklus Blok Genap/Minggu Kedua)
                             </option>
                         </select>

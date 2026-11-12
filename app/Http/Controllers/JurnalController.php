@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\JadwalPelajaran;
 use App\Models\Journal;
+use App\Models\IzinGuru;
+use App\Models\SystemConfiguration;
 use App\Models\Guru;
 use App\Models\Siswa;
 use App\Models\Attendance;
 use App\Models\LeaveRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\Audit;
 
 class JurnalController extends Controller
 {
@@ -24,7 +27,7 @@ class JurnalController extends Controller
         $username = $user ? $user->username : session('username');
         $idRole = session('id_role') ?? ($user ? $user->id_role : null);
 
-        $guru = Guru::where('nip', $username)->first();
+        $guru = \App\Services\JadwalHariIni::guruByUsername($username);
 
         // Dukungan dual-role: Jika Wali Kelas (role 3) atau Guru (role 2) belum ada di tabel guru, sinkronkan otomatis
         if (!$guru) {
@@ -54,9 +57,21 @@ class JurnalController extends Controller
         ];
         $hariIni = $mapHari[$now->dayOfWeekIso] ?? null;
 
-        $jadwals = JadwalPelajaran::with(['kelas', 'mataPelajaran', 'tahunAjaran', 'ruangan'])
+        $jadwalsSemua = JadwalPelajaran::with(['kelas', 'mataPelajaran', 'tahunAjaran', 'ruangan'])
             ->where('id_guru', $guru->id_guru)
             ->get();
+
+        // Pilihan sesi hanya dari putaran yang sedang aktif (riwayat jurnal tetap memuat semua putaran)
+        $siklusAktif = SystemConfiguration::first()?->active_cycle;
+        $jadwals = $siklusAktif
+            ? $jadwalsSemua->filter(fn ($j) => empty($j->cycle_type) || $j->cycle_type === $siklusAktif || $j->cycle_type === 'Semua Putaran')->values()
+            : $jadwalsSemua;
+
+        // Izin mengajar yang sudah disetujui Waka untuk hari ini (hanya pengingat, tidak mengunci)
+        $izinHariIni = IzinGuru::disetujuiPadaTanggal($now->toDateString(), [$guru->id_guru])->first();
+
+        // Tukar ruangan / tukar jam yang sudah disetujui berlaku untuk jadwal hari ini
+        \App\Services\TukarJadwalService::terapkan($jadwals, $now->toDateString());
 
         // Hitung batas pengisian jurnal (maksimal 5 jam setelah jam_selesai)
         $jadwals->transform(function ($j) use ($now, $hariIni) {
@@ -85,7 +100,7 @@ class JurnalController extends Controller
         });
         
         $jurnalList = Journal::with(['jadwal.kelas', 'jadwal.mataPelajaran', 'attendances.siswa'])
-            ->whereIn('schedule_id', $jadwals->pluck('id_jadwal'))
+            ->whereIn('schedule_id', $jadwalsSemua->pluck('id_jadwal'))
             ->orderBy('date', 'desc')
             ->orderBy('id', 'desc')
             ->get();
@@ -154,7 +169,7 @@ class JurnalController extends Controller
 
         $semuaSiswa = $semuaSiswa->map($attachApprovedLeave);
         
-        return view('jurnal.index', compact('jadwals', 'jurnalList', 'guru', 'siswaList', 'activeJadwal', 'siswaByKelas', 'semuaSiswa'));
+        return view('jurnal.index', compact('jadwals', 'jurnalList', 'guru', 'siswaList', 'activeJadwal', 'siswaByKelas', 'semuaSiswa', 'izinHariIni', 'siklusAktif'));
     }
 
     /**
@@ -223,6 +238,12 @@ class JurnalController extends Controller
             return redirect()->back()->withErrors(['schedule_id' => 'Sesi jadwal tidak ditemukan!'])->withInput();
         }
 
+        // VALIDASI PUTARAN: jurnal hanya untuk jadwal putaran yang sedang aktif
+        $siklusAktif = SystemConfiguration::first()?->active_cycle;
+        if ($siklusAktif && !empty($jadwal->cycle_type) && $jadwal->cycle_type !== 'Semua Putaran' && $jadwal->cycle_type !== $siklusAktif) {
+            return redirect()->back()->withErrors(['schedule_id' => "Jadwal ini milik {$jadwal->cycle_type}, sedangkan putaran aktif saat ini adalah {$siklusAktif}."])->withInput();
+        }
+
         // VALIDASI BATAS WAKTU: Maksimal 5 jam setelah jam pembelajaran selesai
         $now = \Carbon\Carbon::now();
         $mapHari = [
@@ -235,6 +256,8 @@ class JurnalController extends Controller
             7 => 'Minggu',
         ];
         $hariIni = $mapHari[$now->dayOfWeekIso] ?? null;
+
+        \App\Services\TukarJadwalService::terapkan(collect([$jadwal]), $now->toDateString());
 
         if (!empty($jadwal->jam_selesai)) {
             if ($jadwal->hari === $hariIni) {
@@ -331,6 +354,12 @@ class JurnalController extends Controller
 
             DB::commit();
 
+            $absenTersimpan = DB::table('attendances')->where('journal_id', $journalId)->get(['student_id', 'status', 'keterangan'])->toArray();
+            Audit::catat('tambah', 'jurnal', $journalId, 'Mengisi jurnal mengajar untuk jadwal #' . $request->schedule_id,
+                null, ['schedule_id' => $request->schedule_id, 'date' => date('Y-m-d'), 'topic_description' => $request->topic_description, 'photo_path' => $photoPath]);
+            Audit::catat('catat_presensi', 'presensi', $journalId, 'Mencatat presensi siswa tidak hadir pada jurnal #' . $journalId
+                . ' (' . count($absenTersimpan) . ' siswa)', null, ['siswa_tidak_hadir' => $absenTersimpan]);
+
             $absenCount = 0;
             if ($request->has('absensi') && is_array($request->absensi)) {
                 $absenCount = collect($request->absensi)->filter(fn($a) => !empty($a['status']) && $a['status'] !== 'Hadir')->count();
@@ -362,7 +391,7 @@ class JurnalController extends Controller
 
         $user = Auth::user();
         $username = $user ? $user->username : session('username');
-        $guru = Guru::where('nip', $username)->first();
+        $guru = \App\Services\JadwalHariIni::guruByUsername($username);
         if (!$guru) {
             $nama = session('nama_lengkap') ?? ($user ? $user->nama_lengkap : $username);
             $guru = Guru::where('nama_guru', $nama)->first();
@@ -416,6 +445,9 @@ class JurnalController extends Controller
                 }
             }
 
+            $jurnalLama = $journal->only(['date', 'topic_description', 'photo_path']);
+            $absenLama = DB::table('attendances')->where('journal_id', $journal->id)->get(['student_id', 'status', 'keterangan'])->toArray();
+
             // 1. Perbarui Jurnal Utama
             $journal->update([
                 'date' => $request->date,
@@ -444,6 +476,12 @@ class JurnalController extends Controller
             }
 
             DB::commit();
+
+            $absenBaru = DB::table('attendances')->where('journal_id', $journal->id)->get(['student_id', 'status', 'keterangan'])->toArray();
+            Audit::catat('ubah', 'jurnal', $journal->id, 'Mengubah jurnal mengajar #' . $journal->id,
+                $jurnalLama, ['date' => $request->date, 'topic_description' => $request->topic_description, 'photo_path' => $photoPath]);
+            Audit::catat('ubah_presensi', 'presensi', $journal->id, 'Mengubah presensi pada jurnal #' . $journal->id,
+                ['siswa_tidak_hadir' => $absenLama], ['siswa_tidak_hadir' => $absenBaru]);
 
             $msg = 'Jurnal mengajar berhasil diperbarui!';
             if ($absenCount > 0) {
